@@ -1,6 +1,7 @@
-import { View, Text, StyleSheet } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import React, { useEffect } from 'react'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
+import { useNavigation } from '@react-navigation/native'
 import Dashboard from './Dashboard';
 import Search from './Search';
 import Icon from 'react-native-vector-icons/Ionicons'
@@ -10,6 +11,7 @@ import * as SplashScreen from 'expo-splash-screen';
 const Tab = createBottomTabNavigator();
 
 const Home = () => {
+    const navigation = useNavigation();
     const [loaded, error] = useFonts({
         'Roboto-Black': require('../assets/fonts/Roboto-Black.ttf'),
         'Roboto-Bold': require('../assets/fonts/Roboto-Bold.ttf'),
@@ -60,8 +62,24 @@ const Home = () => {
                         </View>
                     )
                 }}
-                name="Search"
-                component={Search} />
+                name='Search'
+                component={Search}
+            />
+            <Tab.Screen
+                options={{
+                    tabBarIcon: ({ focused }) => (
+                        <TouchableOpacity 
+                            style={{ alignItems: 'center' }}
+                            onPress={() => navigation.navigate('Stocks')}
+                        >
+                            <Icon name={focused ? 'bar-chart' : 'bar-chart-outline'} size={20} color={focused ? '#fff' : 'grey'} />
+                            <Text style={{ color: focused ? '#fff' : 'grey', fontFamily: 'Roboto-Bold', fontSize: 10 }}>Stocks</Text>
+                        </TouchableOpacity>
+                    )
+                }}
+                name='StocksTab'
+                component={View} // Empty component since we're handling navigation in the icon
+            /> 
         </Tab.Navigator>
     )
 }

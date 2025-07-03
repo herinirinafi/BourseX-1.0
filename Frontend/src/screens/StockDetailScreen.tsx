@@ -1,8 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  ActivityIndicator, 
+  TouchableOpacity, 
+  TextInput, 
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl
+} from 'react-native';
 import { useStocksContext } from '../contexts/StocksContext';
-import { RouteProp } from '@react-navigation/native';
+import { RouteProp, useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../../App';
+import { Stock, PriceHistory } from '../services/api';
+import { MaterialIcons } from '@expo/vector-icons';
+// Format function from date-fns is not currently used
+// import { format } from 'date-fns';
 
 type StockDetailScreenRouteProp = RouteProp<RootStackParamList, 'StockDetail'>;
 
@@ -14,16 +30,23 @@ const StockDetailScreen: React.FC<StockDetailScreenProps> = ({ route }) => {
   const { stockId } = route.params;
   const { getStockDetail, getStockHistory, updateStockPrice } = useStocksContext();
   
-  const [stock, setStock] = useState(null);
-  const [history, setHistory] = useState([]);
+  const navigation = useNavigation();
+  
+  const [stock, setStock] = useState<Stock | null>(null);
+  const [history, setHistory] = useState<PriceHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newPrice, setNewPrice] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const loadData = async () => {
+  const loadData = useCallback(async (isRefreshing = false) => {
     try {
-      setLoading(true);
+      if (!isRefreshing) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
       setError(null);
       
       const [stockData, historyData] = await Promise.all([
@@ -34,13 +57,27 @@ const StockDetailScreen: React.FC<StockDetailScreenProps> = ({ route }) => {
       setStock(stockData);
       setHistory(historyData);
       setNewPrice(stockData.current_price.toString());
-    } catch (err) {
-      setError(err.message || 'Failed to load stock details');
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load stock details');
       console.error('Error loading stock details:', err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [getStockDetail, getStockHistory, stockId]);
+
+  // Handle pull-to-refresh
+  const handleRefresh = useCallback(() => {
+    loadData(true);
+  }, [loadData]);
+
+  // Load data when screen comes into focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadData();
+    });
+    return unsubscribe;
+  }, [navigation, loadData]);
 
   const handleUpdatePrice = async () => {
     if (!newPrice) return;
@@ -61,8 +98,8 @@ const StockDetailScreen: React.FC<StockDetailScreenProps> = ({ route }) => {
       const historyData = await getStockHistory(stockId);
       setHistory(historyData);
       
-    } catch (err) {
-      setError(err.message || 'Failed to update price');
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update price');
       console.error('Error updating price:', err);
     } finally {
       setUpdating(false);
@@ -71,12 +108,19 @@ const StockDetailScreen: React.FC<StockDetailScreenProps> = ({ route }) => {
 
   useEffect(() => {
     loadData();
-  }, [stockId]);
+  }, [stockId, loadData]);
 
-  if (loading && !stock) {
+  useEffect(() => {
+    if (stock) {
+      setNewPrice(stock.current_price.toString());
+    }
+  }, [stock]);
+
+  if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={[styles.text, {marginTop: 16}]}>Loading stock details...</Text>
       </View>
     );
   }
@@ -84,8 +128,10 @@ const StockDetailScreen: React.FC<StockDetailScreenProps> = ({ route }) => {
   if (error) {
     return (
       <View style={styles.centered}>
+        <MaterialIcons name="error-outline" size={48} color="#FF3B30" style={{marginBottom: 16}} />
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity onPress={loadData} style={styles.retryButton}>
+        <Text style={[styles.text, {marginBottom: 16}]}>Please try again later</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => loadData()}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -95,67 +141,120 @@ const StockDetailScreen: React.FC<StockDetailScreenProps> = ({ route }) => {
   if (!stock) {
     return (
       <View style={styles.centered}>
-        <Text>Stock not found</Text>
+        <MaterialIcons name="search-off" size={48} color="#8E8E93" style={{marginBottom: 16}} />
+        <Text style={[styles.text, {marginBottom: 24}]}>Stock not found</Text>
+        <TouchableOpacity 
+          style={[styles.retryButton, {backgroundColor: '#8E8E93'}]} 
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
+  // Calculate price change if we have history
+  const priceChange = history.length > 1 
+    ? stock.current_price - history[1].price 
+    : 0;
+    
+  const priceChangePercent = history.length > 1 && history[1].price !== 0
+    ? (priceChange / history[1].price) * 100
+    : 0;
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.symbol}>{stock.symbol}</Text>
-        <Text style={styles.name}>{stock.name}</Text>
-        
-        <View style={styles.priceContainer}>
-          <Text style={styles.price}>${stock.current_price.toFixed(2)}</Text>
-          <Text style={styles.volume}>Volume: {stock.volume.toLocaleString()}</Text>
-        </View>
-        
-        <View style={styles.updateContainer}>
-          <Text style={styles.updateLabel}>Update Price:</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={newPrice}
-              onChangeText={setNewPrice}
-              keyboardType="numeric"
-              placeholder="Enter new price"
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView 
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+      >
+        <ScrollView 
+          style={styles.scrollView}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={['#007AFF']}
+              tintColor="#007AFF"
             />
-            <TouchableOpacity 
-              style={styles.updateButton}
-              onPress={handleUpdatePrice}
-              disabled={updating}
-            >
-              {updating ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.updateButtonText}>Update</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-        
-        <View style={styles.historyContainer}>
-          <Text style={styles.historyTitle}>Price History</Text>
-          {history.length > 0 ? (
-            <View style={styles.historyList}>
-              {history.map((item) => (
-                <View key={item.id} style={styles.historyItem}>
-                  <Text style={styles.historyDate}>
-                    {new Date(item.timestamp).toLocaleString()}
-                  </Text>
-                  <Text style={styles.historyPrice}>
-                    ${item.price.toFixed(2)}
-                  </Text>
-                </View>
-              ))}
+          }
+          contentContainerStyle={styles.scrollContent}
+        >
+          <View style={styles.card}>
+            <View style={styles.header}>
+              <View style={styles.stockInfo}>
+                <Text style={styles.symbol}>{stock.symbol}</Text>
+                <Text style={styles.name} numberOfLines={2}>{stock.name}</Text>
+              </View>
+              <View style={styles.priceContainer}>
+                <Text style={styles.price}>${stock.current_price.toFixed(2)}</Text>
+                {history.length > 1 && (
+                  <View style={[
+                    styles.priceChangeContainer,
+                    priceChange >= 0 ? styles.positiveChange : styles.negativeChange
+                  ]}>
+                    <MaterialIcons 
+                      name={priceChange >= 0 ? 'arrow-upward' : 'arrow-downward'} 
+                      size={16} 
+                      color="white"
+                      style={styles.priceChangeIcon}
+                    />
+                    <Text style={styles.priceChangeText}>
+                      {Math.abs(priceChange).toFixed(2)} ({priceChangePercent.toFixed(2)}%)
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
+        
+            <View style={styles.updateContainer}>
+              <Text style={styles.updateLabel}>Update Price:</Text>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  value={newPrice}
+                  onChangeText={setNewPrice}
+                  keyboardType="numeric"
+                  placeholder="Enter new price"
+                />
+                <TouchableOpacity 
+                  style={[styles.updateButton, updating && styles.disabledButton]}
+                  onPress={handleUpdatePrice}
+                  disabled={updating}
+                >
+                  {updating ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={styles.updateButtonText}>Update</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            <View style={styles.historyContainer}>
+              <Text style={styles.historyTitle}>Price History</Text>
+              {history.length > 0 ? (
+                <View style={styles.historyList}>
+                  {history.map((item) => (
+                    <View key={item.id} style={styles.historyItem}>
+                      <Text style={styles.historyDate}>
+                        {new Date(item.timestamp).toLocaleString()}
+                      </Text>
+                      <Text style={styles.historyPrice}>
+                        ${item.price?.toFixed(2) || '0.00'}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
           ) : (
             <Text style={styles.noHistory}>No price history available</Text>
           )}
         </View>
       </View>
-    </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -163,43 +262,81 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-    padding: 15,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
   },
   card: {
     backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  stockInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
   symbol: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 5,
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 4,
   },
   name: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 20,
+    lineHeight: 20,
   },
   priceContainer: {
-    marginBottom: 20,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    alignItems: 'flex-end',
   },
   price: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#2ecc71',
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 8,
+  },
+  priceChangeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  positiveChange: {
+    backgroundColor: '#4CAF50',
+  },
+  negativeChange: {
+    backgroundColor: '#F44336',
+  },
+  priceChangeIcon: {
+    marginRight: 4,
+  },
+  priceChangeText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
   volume: {
     fontSize: 14,
     color: '#999',
-    marginTop: 5,
+    marginTop: 8,
   },
   updateContainer: {
     marginBottom: 20,
@@ -236,12 +373,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   historyContainer: {
-    marginTop: 10,
+    marginTop: 24,
   },
   historyTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
+  },
+  text: {
+    fontSize: 16,
+    color: '#333',
   },
   historyList: {
     borderWidth: 1,
@@ -265,7 +406,7 @@ const styles = StyleSheet.create({
   noHistory: {
     color: '#999',
     textAlign: 'center',
-    marginTop: 10,
+    padding: 16,
   },
   centered: {
     flex: 1,
@@ -286,7 +427,11 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: 'white',
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
 });
 

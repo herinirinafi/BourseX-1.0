@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test API BourseX</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>Test de connexion API BourseX</h1>
+    <button onclick="testConnection()">Tester la connexion</button>
+    <div id="result"></div>
+
+    <script>
+    async function testConnection() {
+        const resultDiv = document.getElementById('result');
+        resultDiv.innerHTML = 'Test en cours...';
+        
+        try {
+            const response = await axios.get('http://127.0.0.1:8000/api/', {
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                timeout: 5000
+            });
+            
+            resultDiv.innerHTML = `
+                <h3>✅ Connexion réussie !</h3>
+                <pre>${JSON.stringify(response.data, null, 2)}</pre>
+            `;
+        } catch (error) {
+            let errorMessage = '❌ Erreur de connexion :\n';
+            
+            if (error.response) {
+                errorMessage += `\nStatut: ${error.response.status}\n`;
+                errorMessage += `Données: ${JSON.stringify(error.response.data, null, 2)}`;
+            } else if (error.request) {
+                errorMessage += 'Le serveur ne répond pas. Assurez-vous que le serveur Django est en cours d\'exécution.';
+            } else {
+                errorMessage += error.message;
+            }
+            
+            resultDiv.innerHTML = `<pre>${errorMessage}</pre>`;
+        }
+    }
+    </script>
+</body>
+</html>

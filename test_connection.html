@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test de Connexion API BourseX</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-box {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .success {
+            border-left: 5px solid #4CAF50;
+            background-color: #f8fff8;
+        }
+        .error {
+            border-left: 5px solid #f44336;
+            background-color: #fff8f8;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test de Connexion API BourseX</h1>
+    <p>Cette page teste la connexion entre le frontend et le backend.</p>
+    
+    <button onclick="runTests()">Exécuter les tests</button>
+    
+    <div id="results">
+        <!-- Les résultats des tests s'afficheront ici -->
+    </div>
+
+    <script>
+        function addTestResult(title, success, message, data = null) {
+            const resultsDiv = document.getElementById('results');
+            const testDiv = document.createElement('div');
+            testDiv.className = `test-box ${success ? 'success' : 'error'}`;
+            
+            testDiv.innerHTML = `
+                <h3>${success ? '✅' : '❌'} ${title}</h3>
+                <p>${message}</p>
+            `;
+            
+            if (data) {
+                const pre = document.createElement('pre');
+                pre.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+                testDiv.appendChild(pre);
+            }
+            
+            resultsDiv.appendChild(testDiv);
+        }
+
+        async function testApiEndpoint(url, method = 'GET', data = null) {
+            try {
+                const options = {
+                    method,
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    mode: 'cors'
+                };
+                
+                if (data) {
+                    options.body = JSON.stringify(data);
+                }
+                
+                const response = await fetch(url, options);
+                
+                // Vérifier si la réponse est vide
+                const responseText = await response.text();
+                let responseData;
+                try {
+                    responseData = responseText ? JSON.parse(responseText) : {};
+                } catch (e) {
+                    responseData = { raw: responseText };
+                }
+                
+                const headers = {};
+                response.headers.forEach((value, key) => {
+                    headers[key] = value;
+                });
+                
+                return {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: headers,
+                    data: responseData,
+                    ok: response.ok
+                };
+            } catch (error) {
+                console.error('Erreur dans testApiEndpoint:', error);
+                throw error;
+            }
+        }
+
+        async function runTests() {
+            document.getElementById('results').innerHTML = '';
+            
+            // Test 1: Connexion de base à l'API
+            try {
+                const result = await testApiEndpoint('http://127.0.0.1:8000/api/');
+                addTestResult(
+                    'Test de connexion à l\'API',
+                    result.ok,
+                    result.ok 
+                        ? `Connexion réussie avec le statut ${result.status}`
+                        : `Le serveur a répondu avec une erreur ${result.status}`,
+                    result.data
+                );
+                
+                // Afficher les en-têtes pour le débogage
+                console.log('En-têtes de la réponse:', result.headers);
+                
+            } catch (error) {
+                console.error('Erreur détaillée:', error);
+                addTestResult(
+                    'Test de connexion à l\'API',
+                    false,
+                    'Échec de la connexion au serveur',
+                    error.message
+                );
+            }
+            
+            // Test 2: Vérification CORS avec OPTIONS
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/', {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': window.location.origin,
+                        'Access-Control-Request-Method': 'GET',
+                        'Access-Control-Request-Headers': 'content-type',
+                    },
+                });
+                
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                    'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers'),
+                    'Access-Control-Allow-Credentials': response.headers.get('Access-Control-Allow-Credentials'),
+                    'Vary': response.headers.get('Vary')
+                };
+                
+                // Vérifier si les en-têtes CORS sont correctement définis
+                const hasCorsHeaders = corsHeaders['Access-Control-Allow-Origin'] !== null;
+                
+                addTestResult(
+                    'Test des en-têtes CORS',
+                    hasCorsHeaders,
+                    hasCorsHeaders 
+                        ? 'En-têtes CORS correctement configurés' 
+                        : 'En-têtes CORS manquants ou incorrects',
+                    corsHeaders
+                );
+                
+                // Afficher les en-têtes CORS dans la console pour le débogage
+                console.log('En-têtes CORS:', corsHeaders);
+                
+            } catch (error) {
+                console.error('Erreur CORS:', error);
+                addTestResult(
+                    'Test des en-têtes CORS',
+                    false,
+                    'Erreur lors de la vérification CORS',
+                    error.message
+                );
+            }
+            
+            // Test 3: Test de l'endpoint des stocks
+            try {
+                const result = await testApiEndpoint('http://127.0.0.1:8000/api/stocks/');
+                addTestResult(
+                    'Test de l\'endpoint des stocks',
+                    result.ok,
+                    result.ok 
+                        ? `Liste des stocks récupérée avec succès (${result.status})`
+                        : `Échec de la récupération des stocks (${result.status})`,
+                    result.data
+                );
+            } catch (error) {
+                console.error('Erreur lors du test des stocks:', error);
+                addTestResult(
+                    'Test de l\'endpoint des stocks',
+                    false,
+                    'Échec de la requête vers /api/stocks/',
+                    error.message
+                );
+            }
+        }
+    </script>
+</body>
+</html>

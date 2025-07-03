@@ -1,7 +1,25 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Stock, PriceHistory, fetchStocks, fetchStockDetail, fetchStockHistory, updateStockPrice as updateStockPriceApi } from '../services/api';
+import { 
+  Stock, 
+  PriceHistory, 
+  fetchStocks, 
+  fetchStockDetail, 
+  fetchStockHistory, 
+  updateStockPrice as updateStockPriceApi,
+  showErrorAlert 
+} from '../services/api';
 
-export const useStocks = () => {
+type UseStocksResult = {
+  stocks: Stock[];
+  loading: boolean;
+  error: string | null;
+  loadStocks: () => Promise<void>;
+  getStockDetail: (id: string | number) => Promise<Stock>;
+  getStockHistory: (id: string | number) => Promise<PriceHistory[]>;
+  updateStockPrice: (id: string | number, price: number) => Promise<Stock>;
+};
+
+export const useStocks = (): UseStocksResult => {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -12,9 +30,10 @@ export const useStocks = () => {
       setError(null);
       const data = await fetchStocks();
       setStocks(data);
-    } catch (err) {
-      setError(err.message || 'Failed to fetch stocks');
-      console.error('Error fetching stocks:', err);
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Failed to fetch stocks';
+      setError(errorMessage);
+      showErrorAlert(new Error(errorMessage));
     } finally {
       setLoading(false);
     }
@@ -25,9 +44,10 @@ export const useStocks = () => {
       setLoading(true);
       setError(null);
       return await fetchStockDetail(id);
-    } catch (err) {
-      setError(err.message || 'Failed to fetch stock details');
-      console.error('Error fetching stock details:', err);
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Failed to fetch stock details';
+      setError(errorMessage);
+      showErrorAlert(new Error(errorMessage));
       throw err;
     } finally {
       setLoading(false);
@@ -39,9 +59,10 @@ export const useStocks = () => {
       setLoading(true);
       setError(null);
       return await fetchStockHistory(id);
-    } catch (err) {
-      setError(err.message || 'Failed to fetch stock history');
-      console.error('Error fetching stock history:', err);
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Failed to fetch stock history';
+      setError(errorMessage);
+      showErrorAlert(new Error(errorMessage));
       throw err;
     } finally {
       setLoading(false);
@@ -62,9 +83,10 @@ export const useStocks = () => {
       );
       
       return updatedStock;
-    } catch (err) {
-      setError(err.message || 'Failed to update stock price');
-      console.error('Error updating stock price:', err);
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Failed to update stock price';
+      setError(errorMessage);
+      showErrorAlert(new Error(errorMessage));
       throw err;
     } finally {
       setLoading(false);

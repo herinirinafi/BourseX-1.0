@@ -8,8 +8,13 @@ import * as SplashScreen from 'expo-splash-screen';
 import Icon from 'react-native-vector-icons/FontAwesome'
 import { dummyData } from '../constants'
 import { ProfitIndicator, ActionCenter } from '../components'
+import { useNavigation } from '@react-navigation/native'
+import { useGamification } from '../contexts/GamificationContext'
 
 const Dashboard = () => {
+    const navigation = useNavigation();
+    const { userBadges, unreadCount, userProfile } = useGamification();
+    
     const [loaded, error] = useFonts({
         'Roboto-Black': require('../assets/fonts/Roboto-Black.ttf'),
         'Roboto-Bold': require('../assets/fonts/Roboto-Bold.ttf'),
@@ -91,6 +96,64 @@ const Dashboard = () => {
                     <ActionCenter img_src={require('../assets/icons/buy.png')} img_text="Buy" />
 
                     <ActionCenter img_src={require('../assets/icons/withdraw.png')} img_text="WithDraw" />
+
+                </View>
+
+                {/* 🎮 Section Gamification */}
+                <View style={{ flexDirection: 'row', backgroundColor: '#f8f9fa', height: hp('10%'), width: '100%', alignItems: 'center', justifyContent: 'space-around', borderRadius: 10, marginTop: 15, paddingHorizontal: 10 }}>
+                    
+                    <TouchableOpacity 
+                        style={{ flexDirection: 'column', alignItems: 'center', flex: 1 }}
+                        onPress={() => navigation.navigate('Badges')}
+                    >
+                        <View style={{ backgroundColor: '#FFD700', width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ fontSize: 20 }}>🏆</Text>
+                        </View>
+                        <Text style={{ fontSize: 12, fontFamily: 'Roboto-Bold', color: '#333', marginTop: 2 }}>
+                            {userBadges?.length || 0} Badges
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        style={{ flexDirection: 'column', alignItems: 'center', flex: 1 }}
+                        onPress={() => navigation.navigate('Leaderboard', { type: 'xp' })}
+                    >
+                        <View style={{ backgroundColor: '#28a745', width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ fontSize: 20 }}>📈</Text>
+                        </View>
+                        <Text style={{ fontSize: 12, fontFamily: 'Roboto-Bold', color: '#333', marginTop: 2 }}>
+                            Niveau {userProfile?.level || 1}
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        style={{ flexDirection: 'column', alignItems: 'center', flex: 1 }}
+                        onPress={() => navigation.navigate('Leaderboard')}
+                    >
+                        <View style={{ backgroundColor: '#17a2b8', width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ fontSize: 20 }}>🏅</Text>
+                        </View>
+                        <Text style={{ fontSize: 12, fontFamily: 'Roboto-Bold', color: '#333', marginTop: 2 }}>
+                            Classement
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        style={{ flexDirection: 'column', alignItems: 'center', flex: 1 }}
+                        onPress={() => navigation.navigate('Notifications')}
+                    >
+                        <View style={{ backgroundColor: '#dc3545', width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ fontSize: 20 }}>🔔</Text>
+                            {unreadCount > 0 && (
+                                <View style={{ position: 'absolute', top: -5, right: -5, backgroundColor: '#ff4444', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' }}>
+                                    <Text style={{ color: '#fff', fontSize: 10, fontFamily: 'Roboto-Bold' }}>{unreadCount}</Text>
+                                </View>
+                            )}
+                        </View>
+                        <Text style={{ fontSize: 12, fontFamily: 'Roboto-Bold', color: '#333', marginTop: 2 }}>
+                            Alertes
+                        </Text>
+                    </TouchableOpacity>
 
                 </View>
 

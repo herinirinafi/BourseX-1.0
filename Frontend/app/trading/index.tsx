@@ -1,25 +1,35 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { useTrading } from '../../src/contexts/TradingContext';
+import { useGamification } from '../../src/contexts/GamificationContext';
 import { Asset } from '../../src/types';
 
 const TradingScreen = () => {
   const { assets, user, buyAsset, sellAsset } = useTrading();
+  const { triggerGamificationUpdate } = useGamification();
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [amount, setAmount] = useState('');
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
 
-  const handleTrade = () => {
+  const handleTrade = async () => {
     if (!selectedAsset || !amount) return;
     const quantity = parseFloat(amount);
     if (isNaN(quantity) || quantity <= 0) return;
 
-    if (tradeType === 'buy') {
-      buyAsset(selectedAsset.id, quantity);
-    } else {
-      sellAsset(selectedAsset.id, quantity);
+    try {
+      if (tradeType === 'buy') {
+        buyAsset(selectedAsset.id, quantity);
+      } else {
+        sellAsset(selectedAsset.id, quantity);
+      }
+      
+      // 🎮 Déclencher la mise à jour de la gamification après le trade
+      await triggerGamificationUpdate();
+      
+      setAmount('');
+    } catch (error) {
+      console.error('Erreur lors du trade:', error);
     }
-    setAmount('');
   };
 
   const maxBuy = selectedAsset 

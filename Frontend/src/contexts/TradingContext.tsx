@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Asset, User, Transaction, Mission, MarketEvent } from '../types';
+import { fetchStocks, executeTrade as executeTradeApi } from '../services/api';
 
 interface TradingContextType {
   user: User;
@@ -7,10 +8,12 @@ interface TradingContextType {
   transactions: Transaction[];
   missions: Mission[];
   marketEvents: MarketEvent[];
-  buyAsset: (assetId: string, amount: number) => void;
-  sellAsset: (assetId: string, amount: number) => void;
+  buyAsset: (assetId: string, amount: number) => Promise<void>;
+  sellAsset: (assetId: string, amount: number) => Promise<void>;
   completeMission: (missionId: string) => void;
   fetchMarketData: () => Promise<void>;
+  loading: boolean;
+  error?: string | null;
 }
 
 const defaultUser: User = {
@@ -29,10 +32,12 @@ const defaultContext: TradingContextType = {
   transactions: [],
   missions: [],
   marketEvents: [],
-  buyAsset: () => {},
-  sellAsset: () => {},
+  buyAsset: async () => {},
+  sellAsset: async () => {},
   completeMission: () => {},
   fetchMarketData: async () => {},
+  loading: false,
+  error: null,
 };
 
 const TradingContext = createContext<TradingContextType>(defaultContext);
@@ -43,6 +48,8 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [missions, setMissions] = useState<Mission[]>([]);
   const [marketEvents, setMarketEvents] = useState<MarketEvent[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Charger les données initiales
   useEffect(() => {
@@ -50,6 +57,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Simuler des mises à jour de marché toutes les 30 secondes
     const interval = setInterval(fetchMarketData, 30000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadInitialData = async () => {
@@ -58,20 +66,40 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     await loadMarketEvents();
   };
 
+  const mapBackendStocksToAssets = (stocks: any[]): Asset[] => {
+    return stocks.map(s => ({
+      id: String(s.id ?? s.symbol),
+      symbol: s.symbol,
+      name: s.name,
+      currentPrice: Number(s.current_price ?? s.currentPrice ?? 0),
+      change24h: 0,
+      image: 'https://dummyimage.com/64x64/0ea5e9/ffffff&text=' + (s.symbol || 'AS'),
+    }));
+  };
+
   const fetchMarketData = async () => {
-    // Simuler des données de marché
-    const mockAssets: Asset[] = [
-      {
-        id: 'bitcoin',
-        symbol: 'BTC',
-        name: 'Bitcoin',
-        currentPrice: Math.random() * 10000 + 30000, // Prix aléatoire entre 30k et 40k
-        change24h: Math.random() * 10 - 5, // Variation aléatoire entre -5% et +5%
-        image: 'https://cryptologos.cc/logos/bitcoin-btc-logo.png',
-      },
-      // Ajouter d'autres actifs ici
-    ];
-    setAssets(mockAssets);
+    setLoading(true);
+    setError(null);
+    try {
+      const stocks = await fetchStocks();
+      setAssets(mapBackendStocksToAssets(stocks));
+  } catch (e: any) {
+      // Fallback to mock if backend unreachable
+      const mockAssets: Asset[] = [
+        {
+          id: 'BTC',
+          symbol: 'BTC',
+          name: 'Bitcoin',
+          currentPrice: Math.random() * 10000 + 30000,
+          change24h: Math.random() * 10 - 5,
+          image: 'https://cryptologos.cc/logos/bitcoin-btc-logo.png',
+        },
+      ];
+      setAssets(mockAssets);
+      setError(e?.message || 'Impossible de charger les données marché');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadMissions = async () => {
@@ -107,7 +135,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setMarketEvents(events);
   };
 
-  const buyAsset = (assetId: string, amount: number) => {
+  const buyAsset = async (assetId: string, amount: number) => {
     // Implémenter la logique d'achat
     const asset = assets.find(a => a.id === assetId);
     if (!asset) return;
@@ -147,12 +175,61 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       timestamp: new Date(),
     };
 
+    try {
+      // Attempt backend trade if possible (requires numeric stock id). Using symbol fallback
+      const backendStock = assets.find(a => a.id === assetId || a.symbol === assetId);
+      if (backendStock) {
+        const numericId = Number(backendStock.id);
+        if (!Number.isNaN(numericId)) {
+          await executeTradeApi(numericId, 'BUY', amount);
+        }
+      }
+  } catch {
+      // Ignore backend errors for now, local state already updated
+    }
+
     setUser(updatedUser);
     setTransactions([newTransaction, ...transactions]);
   };
 
-  const sellAsset = (assetId: string, amount: number) => {
-    // Implémenter la logique de vente (similaire à buyAsset)
+  const sellAsset = async (assetId: string, amount: number) => {
+    const asset = assets.find(a => a.id === assetId);
+    if (!asset) return;
+
+    const portfolioItem = user.portfolio.find(p => p.assetId === assetId);
+    if (!portfolioItem || portfolioItem.quantity < amount) return;
+
+    const revenue = asset.currentPrice * amount;
+
+    const updatedUser = {
+      ...user,
+      balance: user.balance + revenue,
+      portfolio: user.portfolio
+        .map(p => p.assetId === assetId ? { ...p, quantity: p.quantity - amount } : p)
+        .filter(p => p.quantity > 0),
+    };
+
+    const newTransaction: Transaction = {
+      id: `tx-${Date.now()}`,
+      assetId,
+      type: 'sell',
+      quantity: amount,
+      price: asset.currentPrice,
+      timestamp: new Date(),
+    };
+
+    try {
+      const backendStock = assets.find(a => a.id === assetId || a.symbol === assetId);
+      const numericId = backendStock ? Number(backendStock.id) : NaN;
+      if (!Number.isNaN(numericId)) {
+        await executeTradeApi(numericId, 'SELL', amount);
+      }
+    } catch {
+      // ignore backend errors; local state already updated
+    }
+
+    setUser(updatedUser);
+    setTransactions([newTransaction, ...transactions]);
   };
 
   const completeMission = (missionId: string) => {
@@ -199,6 +276,8 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         sellAsset,
         completeMission,
         fetchMarketData,
+  loading,
+  error,
       }}
     >
       {children}

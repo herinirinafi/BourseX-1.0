@@ -1,12 +1,46 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ScrollView } from 'react-native';
 import { useTrading } from '../../src/contexts/TradingContext';
 import { Mission } from '../../src/types';
+import { useGamification } from '../../src/contexts/GamificationContext';
+import { fetchMissions } from '../../src/services/api';
+import { BottomTabBar } from '../../src/components/navigation/BottomTabBar';
 
 export default function MissionsScreen() {
   const { missions, completeMission, user } = useTrading();
+  // Optional: read achievements/badges from gamification (reserved for later use)
+  useGamification();
+  const [remoteMissions, setRemoteMissions] = useState<Mission[] | null>(null);
 
-  const dailyMissions = missions.filter(m => m.type === 'daily');
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+  const res = await fetchMissions() as unknown as any[];
+        if (cancelled) return;
+        // Map backend missions (unknown shape) into UI Mission shape
+        const mapped: Mission[] = (res || []).map((m: any) => ({
+          id: String(m.id ?? m.slug ?? Math.random().toString(36).slice(2)),
+          title: m.title || m.name || 'Mission',
+          description: m.description || m.details || '',
+          reward: Number(m.reward || m.reward_xp || m.xp || 0),
+          completed: !!(m.completed ?? m.is_completed ?? false),
+          progress: Number(m.progress ?? 0),
+          target: Number(m.target ?? m.goal ?? 1),
+          type: (m.type || m.category || 'daily') as any,
+        }));
+        setRemoteMissions(mapped);
+      } catch {
+        // no-op on error/unauth
+        setRemoteMissions(null);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const source = (remoteMissions && remoteMissions.length > 0) ? remoteMissions : missions;
+  const dailyMissions = source.filter(m => m.type === 'daily');
   // Les achievements sont filtrés mais non utilisés actuellement
   // const achievements = missions.filter(m => m.type === 'achievement');
 
@@ -113,6 +147,9 @@ export default function MissionsScreen() {
           <Text style={styles.sectionTitle}>Missions du jour</Text>
         }
       />
+      
+      {/* Bottom Navigation */}
+      <BottomTabBar />
     </View>
   );
 }

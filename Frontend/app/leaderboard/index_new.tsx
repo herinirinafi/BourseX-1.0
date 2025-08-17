@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Typography, GlassCard } from '../../src/components/ui';
 import { BottomTabBar } from '../../src/components/navigation/BottomTabBar';
 import { useTheme } from '../../src/config/theme';
-import { gamificationService, type LeaderboardEntry } from '../../src/services/gamificationService';
 
 const leaderboardData = [
   { id: '1', name: 'CryptoMaster', rank: 1, portfolioValue: 12543.21, weeklyChange: 12.5, avatar: '👑' },
@@ -26,69 +25,14 @@ const timeFrames = [
 ];
 
 export default function LeaderboardScreen() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const theme = useTheme();
-  const [selectedTimeFrame, setSelectedTimeFrame] = useState<'weekly' | 'monthly' | 'alltime'>('weekly');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [loading, setLoading] = useState(false);
-  const [serverData, setServerData] = useState<typeof leaderboardData | null>(null);
-  const [yourRank, setYourRank] = useState<number | null>(null);
-
-  const typeForTimeframe = (tf: 'weekly' | 'monthly' | 'alltime'): string => {
-    // Map UI timeframes to available leaderboard types
-    switch (tf) {
-      case 'monthly':
-        return 'PROFIT';
-      case 'alltime':
-        return 'PORTFOLIO_VALUE';
-      case 'weekly':
-      default:
-        return 'XP';
-    }
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      setLoading(true);
-      try {
-        const type = typeForTimeframe(selectedTimeFrame);
-        const data: LeaderboardEntry[] = await gamificationService.getLeaderboard(type);
-        if (cancelled) return;
-        const mapped = data.map((entry, idx) => ({
-          id: String(entry.user.id ?? idx + 1),
-          name: entry.user?.username || `${entry.user?.first_name || ''} ${entry.user?.last_name || ''}`.trim() || 'Utilisateur',
-          rank: entry.rank ?? idx + 1,
-          portfolioValue: Number(entry.score ?? 0),
-          weeklyChange: 0,
-          avatar: '👤',
-        }));
-        setServerData(mapped as any);
-        // try to fetch user rank summary
-        try {
-          const all = await gamificationService.getAllLeaderboards();
-          const rank = all?.user_rank_summary?.[type] ?? null;
-          setYourRank(typeof rank === 'number' ? rank : null);
-        } catch {}
-  } catch {
-        // Likely unauthenticated; fallback to static demo data
-        setServerData(null);
-        setYourRank(null);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    run();
-    return () => { cancelled = true; };
-  }, [selectedTimeFrame]);
-
-  const dataToRender = serverData ?? leaderboardData;
+  const [selectedTimeFrame, setSelectedTimeFrame] = useState('weekly');
 
   const renderItem = ({ item, index }: { item: any, index: number }) => {
     const isTop3 = item.rank <= 3;
     
     return (
-      <GlassCard style={styles.leaderboardItem} padding="md">
+      <GlassCard style={[styles.leaderboardItem, isTop3 && styles.top3Item]} padding="md">
         <View style={styles.rankContainer}>
           {isTop3 ? (
             <LinearGradient
@@ -105,7 +49,7 @@ export default function LeaderboardScreen() {
             </LinearGradient>
           ) : (
             <View style={styles.rankBadge}>
-              <Typography variant="body1" color="text" weight="600">
+              <Typography variant="h5" color="text" weight="600">
                 #{item.rank}
               </Typography>
             </View>
@@ -119,7 +63,7 @@ export default function LeaderboardScreen() {
         </View>
 
         <View style={styles.userInfo}>
-          <Typography variant="body1" color="text" weight="600">
+          <Typography variant="h5" color="text" weight="600" numberOfLines={1}>
             {item.name}
           </Typography>
           <Typography variant="body1" color="text" weight="600">
@@ -168,7 +112,7 @@ export default function LeaderboardScreen() {
           {timeFrames.map((timeFrame) => (
             <TouchableOpacity
               key={timeFrame.id}
-              onPress={() => setSelectedTimeFrame(timeFrame.id as 'weekly' | 'monthly' | 'alltime')}
+              onPress={() => setSelectedTimeFrame(timeFrame.id)}
               style={[
                 styles.timeFrameButton,
                 selectedTimeFrame === timeFrame.id && styles.timeFrameButtonActive
@@ -188,7 +132,7 @@ export default function LeaderboardScreen() {
         {/* Leaderboard List */}
         <View style={styles.leaderboardContainer}>
           <FlatList
-            data={dataToRender}
+            data={leaderboardData}
             renderItem={renderItem}
             keyExtractor={item => item.id}
             style={styles.leaderboardList}
@@ -205,7 +149,7 @@ export default function LeaderboardScreen() {
             </Typography>
             <View style={styles.yourRankInfo}>
               <Typography variant="h2" color="primary" weight="700">
-                {yourRank ? `#${yourRank}` : '#--'}
+                #42
               </Typography>
               <Typography variant="body1" color="textSecondary">
                 sur 1,337 traders

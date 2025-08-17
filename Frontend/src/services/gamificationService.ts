@@ -2,6 +2,8 @@
  * Service de gamification pour BourseX
  * Gère toutes les interactions avec les endpoints de gamification
  */
+import { API_BASE_URL, ENDPOINTS } from '../config/api';
+import { apiClient } from './apiClient';
 
 export interface Badge {
   id: number;
@@ -83,23 +85,17 @@ export interface GamificationSummary {
 }
 
 class GamificationService {
-  private baseURL = 'http://127.0.0.1:8000/api';
+  private baseURL = API_BASE_URL;
 
   private async apiCall(endpoint: string, options: any = {}): Promise<any> {
     try {
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
-        ...options,
-      });
-      
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
-      
-      return await response.json();
+      const method = (options.method || 'GET') as 'GET' | 'POST' | 'PATCH' | 'DELETE';
+      const body = options.body;
+      if (method === 'GET') return await apiClient.get(endpoint, options);
+      if (method === 'POST') return await apiClient.post(endpoint, body, options);
+      if (method === 'PATCH') return await apiClient.patch(endpoint, body, options);
+      if (method === 'DELETE') return await apiClient.delete(endpoint, options);
+      return await apiClient.request(endpoint, options);
     } catch (error) {
       console.error('API call failed:', error);
       throw error;
@@ -110,42 +106,42 @@ class GamificationService {
    * Récupère le résumé complet de gamification de l'utilisateur
    */
   async getGamificationSummary(): Promise<GamificationSummary> {
-    return await this.apiCall('/gamification/');
+  return await this.apiCall(ENDPOINTS.GAMIFICATION_SUMMARY);
   }
 
   /**
    * Récupère tous les badges disponibles
    */
   async getAllBadges(): Promise<Badge[]> {
-    return await this.apiCall('/badges/');
+  return await this.apiCall(ENDPOINTS.BADGES);
   }
 
   /**
    * Récupère les badges de l'utilisateur
    */
   async getUserBadges(): Promise<UserBadge[]> {
-    return await this.apiCall('/user-badges/');
+  return await this.apiCall(ENDPOINTS.USER_BADGES);
   }
 
   /**
    * Récupère tous les achievements disponibles
    */
   async getAllAchievements(): Promise<Achievement[]> {
-    return await this.apiCall('/achievements/');
+  return await this.apiCall(ENDPOINTS.ACHIEVEMENTS);
   }
 
   /**
    * Récupère les achievements de l'utilisateur
    */
   async getUserAchievements(): Promise<UserAchievement[]> {
-    return await this.apiCall('/user-achievements/');
+  return await this.apiCall(ENDPOINTS.USER_ACHIEVEMENTS);
   }
 
   /**
    * Récupère le leaderboard par type
    */
   async getLeaderboard(type: string = 'XP'): Promise<LeaderboardEntry[]> {
-    return await this.apiCall(`/leaderboard/?type=${type}`);
+  return await this.apiCall(`${ENDPOINTS.LEADERBOARD}?type=${type}`);
   }
 
   /**
@@ -158,21 +154,21 @@ class GamificationService {
     portfolio_leaderboard: LeaderboardEntry[];
     user_rank_summary: Record<string, number>;
   }> {
-    return await this.apiCall('/leaderboard/summary/');
+    return await this.apiCall(`${ENDPOINTS.LEADERBOARD}all_leaderboards/`);
   }
 
   /**
    * Récupère le streak quotidien de l'utilisateur
    */
   async getDailyStreak(): Promise<DailyStreak> {
-    return await this.apiCall('/daily-streak/');
+  return await this.apiCall(ENDPOINTS.DAILY_STREAK);
   }
 
   /**
    * Récupère les notifications de l'utilisateur
    */
   async getNotifications(unread_only: boolean = false): Promise<Notification[]> {
-    const url = unread_only ? '/notifications/?unread=true' : '/notifications/';
+  const url = unread_only ? `${ENDPOINTS.NOTIFICATIONS}?unread=true` : ENDPOINTS.NOTIFICATIONS;
     return await this.apiCall(url);
   }
 
@@ -180,7 +176,7 @@ class GamificationService {
    * Marque une notification comme lue
    */
   async markNotificationAsRead(notificationId: number): Promise<void> {
-    await this.apiCall(`/notifications/${notificationId}/`, {
+  await this.apiCall(`${ENDPOINTS.NOTIFICATIONS}${notificationId}/`, {
       method: 'PATCH',
       body: JSON.stringify({ is_read: true })
     });
@@ -190,7 +186,7 @@ class GamificationService {
    * Marque toutes les notifications comme lues
    */
   async markAllNotificationsAsRead(): Promise<void> {
-    await this.apiCall('/notifications/mark_all_read/', {
+  await this.apiCall(ENDPOINTS.NOTIFICATIONS_MARK_ALL_READ, {
       method: 'POST'
     });
   }
@@ -199,7 +195,7 @@ class GamificationService {
    * Récupère le nombre de notifications non lues
    */
   async getUnreadNotificationCount(): Promise<number> {
-    const response = await this.apiCall('/notifications/unread_count/');
+  const response = await this.apiCall(`${ENDPOINTS.NOTIFICATIONS}unread_count/`);
     return response.count;
   }
 
@@ -212,7 +208,7 @@ class GamificationService {
     level_up: boolean;
     new_level: number;
   }> {
-    return await this.apiCall('/gamification/update/', {
+    return await this.apiCall(ENDPOINTS.GAMIFICATION_UPDATE, {
       method: 'POST'
     });
   }
@@ -229,6 +225,7 @@ class GamificationService {
     total_achievements: number;
     completion_rate: number;
   }> {
+    // Not implemented in backend yet; keep endpoint for future use
     return await this.apiCall('/gamification/progress/');
   }
 }

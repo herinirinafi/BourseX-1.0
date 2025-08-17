@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Typography, Card, Button, GlassCard, PriceChart } from '../../src/components/ui';
+import { BottomTabBar } from '../../src/components/navigation/BottomTabBar';
+import { useTheme } from '../../src/config/theme';
 import { useTrading } from '../../src/contexts/TradingContext';
 import { useGamification } from '../../src/contexts/GamificationContext';
 import { Asset } from '../../src/types';
 
 const TradingScreen = () => {
+  const theme = useTheme();
   const { assets, user, buyAsset, sellAsset } = useTrading();
   const { triggerGamificationUpdate } = useGamification();
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -12,9 +17,16 @@ const TradingScreen = () => {
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
 
   const handleTrade = async () => {
-    if (!selectedAsset || !amount) return;
+    if (!selectedAsset || !amount) {
+      Alert.alert('Erreur', 'Veuillez sélectionner un actif et entrer un montant');
+      return;
+    }
+    
     const quantity = parseFloat(amount);
-    if (isNaN(quantity) || quantity <= 0) return;
+    if (isNaN(quantity) || quantity <= 0) {
+      Alert.alert('Erreur', 'Montant invalide');
+      return;
+    }
 
     try {
       if (tradeType === 'buy') {
@@ -27,8 +39,10 @@ const TradingScreen = () => {
       await triggerGamificationUpdate();
       
       setAmount('');
+      Alert.alert('Succès', `${tradeType === 'buy' ? 'Achat' : 'Vente'} réalisé avec succès!`);
     } catch (error) {
       console.error('Erreur lors du trade:', error);
+      Alert.alert('Erreur', 'Échec de la transaction');
     }
   };
 
@@ -37,238 +51,380 @@ const TradingScreen = () => {
     : 0;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.tabs}>
-        <TouchableOpacity 
-          style={[styles.tab, tradeType === 'buy' && styles.activeTab]}
-          onPress={() => setTradeType('buy')}
-        >
-          <Text style={[styles.tabText, tradeType === 'buy' && styles.activeTabText]}>
-            Acheter
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, tradeType === 'sell' && styles.activeTab]}
-          onPress={() => setTradeType('sell')}
-        >
-          <Text style={[styles.tabText, tradeType === 'sell' && styles.activeTabText]}>
-            Vendre
-          </Text>
-        </TouchableOpacity>
-      </View>
+    <LinearGradient
+      colors={['#F8FAFC', '#F1F5F9', '#E2E8F0']}
+      style={styles.container}
+    >
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Typography variant="h2" color="text" weight="700">
+            Trading
+          </Typography>
+          <Typography variant="body1" color="textSecondary">
+            Achetez et vendez vos cryptomonnaies
+          </Typography>
+        </View>
 
-      <View style={styles.card}>
-        <Text style={styles.label}>Actif</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.assetsList}>
-          {assets.map(asset => (
-            <TouchableOpacity 
-              key={asset.id}
-              style={[
-                styles.assetItem, 
-                selectedAsset?.id === asset.id && styles.selectedAsset
-              ]}
-              onPress={() => setSelectedAsset(asset)}
-            >
-              <Image source={{ uri: asset.image }} style={styles.assetIcon} />
-              <Text style={styles.assetSymbol}>{asset.symbol}</Text>
-              <Text style={[
-                styles.priceChange,
-                asset.change24h >= 0 ? styles.positive : styles.negative
-              ]}>
-                {asset.change24h >= 0 ? '+' : ''}{asset.change24h.toFixed(2)}%
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {/* Balance Card */}
+        <GlassCard style={styles.balanceCard} padding="lg">
+          <View style={styles.balanceContent}>
+            <Typography variant="body2" color="textSecondary">
+              Solde disponible
+            </Typography>
+            <Typography variant="h2" color="text" weight="700">
+              ${user?.balance?.toFixed(2) || '0.00'}
+            </Typography>
+          </View>
+        </GlassCard>
 
-        <Text style={styles.label}>Montant</Text>
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={amount}
-            onChangeText={setAmount}
-            placeholder="0.00"
-            keyboardType="numeric"
-            placeholderTextColor="#666"
+        {/* Price Chart */}
+        {selectedAsset && (
+          <PriceChart
+            data={[
+              selectedAsset.currentPrice * 0.95,
+              selectedAsset.currentPrice * 0.97,
+              selectedAsset.currentPrice * 0.99,
+              selectedAsset.currentPrice * 1.02,
+              selectedAsset.currentPrice * 0.98,
+              selectedAsset.currentPrice * 1.01,
+              selectedAsset.currentPrice * 1.05,
+              selectedAsset.currentPrice * 1.03,
+              selectedAsset.currentPrice * 1.07,
+              selectedAsset.currentPrice * 1.04,
+              selectedAsset.currentPrice * 1.02,
+              selectedAsset.currentPrice,
+            ]}
+            title={selectedAsset.symbol}
+            currentPrice={selectedAsset.currentPrice}
+            change24h={selectedAsset.change24h}
           />
-          <Text style={styles.currency}>
-            {selectedAsset?.symbol || '---'}
-          </Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Prix:</Text>
-          <Text style={styles.infoValue}>
-            {selectedAsset ? `$${selectedAsset.currentPrice.toFixed(2)}` : '---'}
-          </Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Total:</Text>
-          <Text style={styles.infoValue}>
-            {selectedAsset && amount && !isNaN(parseFloat(amount)) 
-              ? `$${(parseFloat(amount) * selectedAsset.currentPrice).toFixed(2)}` 
-              : '---'}
-          </Text>
-        </View>
-
-        <TouchableOpacity 
-          style={[
-            styles.tradeButton, 
-            (!selectedAsset || !amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) && styles.disabledButton
-          ]}
-          onPress={handleTrade}
-          disabled={!selectedAsset || !amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0}
-        >
-          <Text style={styles.tradeButtonText}>
-            {tradeType === 'buy' ? 'Acheter' : 'Vendre'} {selectedAsset?.symbol || ''}
-          </Text>
-        </TouchableOpacity>
-
-        {tradeType === 'buy' && (
-          <TouchableOpacity 
-            style={styles.maxButton}
-            onPress={() => setAmount(maxBuy.toString())}
-          >
-            <Text style={styles.maxButtonText}>
-              MAX: {maxBuy} {selectedAsset?.symbol || ''}
-            </Text>
-          </TouchableOpacity>
         )}
-      </View>
-    </View>
+
+        {/* Trade Type Selector */}
+        <Card style={styles.tradeTypeCard} variant="glass" padding="sm">
+          <View style={styles.tradeTypeTabs}>
+            <TouchableOpacity
+              style={[
+                styles.tradeTypeTab,
+                tradeType === 'buy' && { backgroundColor: theme.colors.success }
+              ]}
+              onPress={() => setTradeType('buy')}
+            >
+              <Typography 
+                variant="body1" 
+                color={tradeType === 'buy' ? 'white' : 'textSecondary'}
+                weight="600"
+              >
+                Acheter
+              </Typography>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[
+                styles.tradeTypeTab,
+                tradeType === 'sell' && { backgroundColor: theme.colors.error }
+              ]}
+              onPress={() => setTradeType('sell')}
+            >
+              <Typography 
+                variant="body1" 
+                color={tradeType === 'sell' ? 'white' : 'textSecondary'}
+                weight="600"
+              >
+                Vendre
+              </Typography>
+            </TouchableOpacity>
+          </View>
+        </Card>
+
+        {/* Asset Selection */}
+        <Card style={styles.assetCard} variant="elevated" padding="lg">
+          <Typography variant="h3" color="text" weight="600" style={styles.sectionTitle}>
+            Sélectionner un actif
+          </Typography>
+          
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.assetScroll}>
+            {assets.map((asset) => (
+              <TouchableOpacity
+                key={asset.id}
+                style={[
+                  styles.assetItem,
+                  selectedAsset?.id === asset.id && {
+                    backgroundColor: theme.colors.primary,
+                  }
+                ]}
+                onPress={() => setSelectedAsset(asset)}
+              >
+                <View style={styles.assetInfo}>
+                  <Typography
+                    variant="body1"
+                    color={selectedAsset?.id === asset.id ? 'white' : 'text'}
+                    weight="600"
+                  >
+                    {asset.symbol}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color={selectedAsset?.id === asset.id ? 'white' : 'textSecondary'}
+                  >
+                    {asset.name}
+                  </Typography>
+                  <Typography
+                    variant="body1"
+                    color={selectedAsset?.id === asset.id ? 'white' : 'text'}
+                    weight="500"
+                  >
+                    ${asset.currentPrice?.toFixed(2)}
+                  </Typography>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </Card>
+
+        {/* Selected Asset Details */}
+        {selectedAsset && (
+          <Card style={styles.selectedAssetCard} variant="gradient" padding="lg">
+            <View style={styles.selectedAssetHeader}>
+              <View>
+                <Typography variant="h3" color="white" weight="700">
+                  {selectedAsset.symbol}
+                </Typography>
+                <Typography variant="body1" color="white">
+                  {selectedAsset.name}
+                </Typography>
+              </View>
+              <View style={styles.priceContainer}>
+                <Typography variant="h2" color="white" weight="700">
+                  ${selectedAsset.currentPrice?.toFixed(2)}
+                </Typography>
+                <Typography variant="body2" color="white">
+                  +2.5% ↗
+                </Typography>
+              </View>
+            </View>
+          </Card>
+        )}
+
+        {/* Amount Input */}
+        {selectedAsset && (
+          <Card style={styles.inputCard} variant="default" padding="lg">
+            <Typography variant="h4" color="text" weight="600" style={styles.inputLabel}>
+              Montant ({tradeType === 'buy' ? 'USD' : selectedAsset.symbol})
+            </Typography>
+            
+            <TextInput
+              style={[styles.amountInput, { borderColor: theme.colors.border }]}
+              value={amount}
+              onChangeText={setAmount}
+              placeholder={tradeType === 'buy' ? "0.00" : "0.0000"}
+              keyboardType="numeric"
+              placeholderTextColor={theme.colors.textSecondary}
+            />
+            
+            <View style={styles.quickAmounts}>
+              {['25%', '50%', '75%', '100%'].map((percentage) => (
+                <TouchableOpacity
+                  key={percentage}
+                  style={[styles.quickAmountBtn, { borderColor: theme.colors.primary }]}
+                  onPress={() => {
+                    const maxAmount = tradeType === 'buy' ? maxBuy : 1; // Simplified
+                    const percent = parseInt(percentage) / 100;
+                    setAmount((maxAmount * percent).toFixed(tradeType === 'buy' ? 2 : 4));
+                  }}
+                >
+                  <Typography variant="caption" color="primary" weight="600">
+                    {percentage}
+                  </Typography>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {tradeType === 'buy' && (
+              <Typography variant="body2" color="textSecondary" style={styles.maxInfo}>
+                Maximum: ${maxBuy.toFixed(2)}
+              </Typography>
+            )}
+          </Card>
+        )}
+
+        {/* Trade Summary */}
+        {selectedAsset && amount && (
+          <GlassCard style={styles.summaryCard} padding="lg">
+            <Typography variant="h4" color="text" weight="600" style={styles.summaryTitle}>
+              Résumé de la transaction
+            </Typography>
+            
+            <View style={styles.summaryRow}>
+              <Typography variant="body1" color="textSecondary">
+                {tradeType === 'buy' ? 'Vous achetez' : 'Vous vendez'}
+              </Typography>
+              <Typography variant="body1" color="text" weight="600">
+                {tradeType === 'buy' 
+                  ? `${(parseFloat(amount) / selectedAsset.currentPrice).toFixed(6)} ${selectedAsset.symbol}`
+                  : `${parseFloat(amount)} ${selectedAsset.symbol}`
+                }
+              </Typography>
+            </View>
+            
+            <View style={styles.summaryRow}>
+              <Typography variant="body1" color="textSecondary">
+                Prix unitaire
+              </Typography>
+              <Typography variant="body1" color="text" weight="600">
+                ${selectedAsset.currentPrice.toFixed(2)}
+              </Typography>
+            </View>
+            
+            <View style={styles.summaryRow}>
+              <Typography variant="body1" color="textSecondary">
+                Total
+              </Typography>
+              <Typography variant="h4" color="text" weight="700">
+                {tradeType === 'buy' 
+                  ? `$${parseFloat(amount).toFixed(2)}`
+                  : `$${(parseFloat(amount) * selectedAsset.currentPrice).toFixed(2)}`
+                }
+              </Typography>
+            </View>
+          </GlassCard>
+        )}
+
+        {/* Action Button */}
+        <View style={styles.actionContainer}>
+          <Button
+            title={selectedAsset && amount 
+              ? `${tradeType === 'buy' ? 'Acheter' : 'Vendre'} ${selectedAsset.symbol}`
+              : 'Sélectionner un actif'
+            }
+            onPress={handleTrade}
+            variant="gradient"
+            size="lg"
+            fullWidth
+            disabled={!selectedAsset || !amount}
+          />
+        </View>
+      </ScrollView>
+      
+      {/* Bottom Navigation */}
+      <BottomTabBar />
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
-    padding: 15,
   },
-  tabs: {
-    flexDirection: 'row',
-    backgroundColor: '#1E1E1E',
-    borderRadius: 10,
-    marginBottom: 20,
-    overflow: 'hidden',
-  },
-  tab: {
+  scrollView: {
     flex: 1,
-    padding: 15,
+    paddingHorizontal: 20,
+  },
+  header: {
+    paddingTop: 60,
+    paddingBottom: 24,
     alignItems: 'center',
   },
-  activeTab: {
-    backgroundColor: '#2A2A2A',
+  balanceCard: {
+    marginBottom: 16,
   },
-  tabText: {
-    color: '#888',
-    fontWeight: '600',
+  balanceContent: {
+    alignItems: 'center',
   },
-  activeTabText: {
-    color: '#007AFF',
+  tradeTypeCard: {
+    marginBottom: 16,
   },
-  card: {
-    backgroundColor: '#1E1E1E',
-    borderRadius: 12,
-    padding: 20,
-  },
-  label: {
-    color: '#888',
-    marginBottom: 8,
-    fontSize: 14,
-  },
-  assetsList: {
+  tradeTypeTabs: {
     flexDirection: 'row',
-    marginBottom: 20,
+    gap: 8,
+  },
+  tradeTypeTab: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  assetCard: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    marginBottom: 16,
+  },
+  assetScroll: {
+    paddingVertical: 8,
   },
   assetItem: {
-    flexDirection: 'column',
+    marginRight: 12,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    minWidth: 120,
+  },
+  assetInfo: {
     alignItems: 'center',
-    padding: 10,
-    marginRight: 10,
-    borderRadius: 8,
-    backgroundColor: '#2A2A2A',
-    minWidth: 80,
+    gap: 4,
   },
-  selectedAsset: {
-    borderWidth: 1,
-    borderColor: '#007AFF',
+  selectedAssetCard: {
+    marginBottom: 16,
   },
-  assetIcon: {
-    width: 30,
-    height: 30,
-    marginBottom: 5,
-  },
-  assetSymbol: {
-    color: '#FFF',
-    fontWeight: '600',
-    marginBottom: 5,
-  },
-  priceChange: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  positive: {
-    color: '#4CAF50',
-  },
-  negative: {
-    color: '#F44336',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2A2A2A',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    marginBottom: 15,
-  },
-  input: {
-    flex: 1,
-    color: '#FFF',
-    fontSize: 24,
-    paddingVertical: 15,
-  },
-  currency: {
-    color: '#888',
-    fontSize: 16,
-    marginLeft: 10,
-  },
-  infoRow: {
+  selectedAssetHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  infoLabel: {
-    color: '#888',
-  },
-  infoValue: {
-    color: '#FFF',
-    fontWeight: '500',
-  },
-  tradeButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    padding: 15,
     alignItems: 'center',
-    marginTop: 20,
   },
-  disabledButton: {
-    opacity: 0.5,
+  priceContainer: {
+    alignItems: 'flex-end',
   },
-  tradeButtonText: {
-    color: '#FFF',
-    fontSize: 16,
+  inputCard: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    marginBottom: 12,
+  },
+  amountInput: {
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 18,
     fontWeight: '600',
+    marginBottom: 16,
   },
-  maxButton: {
-    alignSelf: 'center',
-    marginTop: 15,
-    padding: 5,
+  quickAmounts: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
   },
-  maxButtonText: {
-    color: '#007AFF',
-    fontSize: 14,
+  quickAmountBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  maxInfo: {
+    textAlign: 'center',
+  },
+  summaryCard: {
+    marginBottom: 16,
+  },
+  summaryTitle: {
+    marginBottom: 16,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  actionContainer: {
+    marginBottom: 100,
   },
 });
 

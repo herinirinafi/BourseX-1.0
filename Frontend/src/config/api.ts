@@ -14,7 +14,7 @@ const API_URLS = {
 
 // Configuration des timeouts (en millisecondes)
 export const REQUEST_TIMEOUT = 15000; 
-const MAX_RETRIES = 2;
+export const MAX_RETRIES = 2;
 
 // Détection de l'environnement
 const getEnvironment = (): Environment => {
@@ -31,12 +31,36 @@ export const ENDPOINTS = {
   STOCKS: '/stocks/',
   STOCK_DETAIL: (id: string | number) => `/stocks/${id}/`,
   STOCK_HISTORY: (id: string | number) => `/stocks/${id}/history/`,
-  UPDATE_PRICE: (id: string | number) => `/stocks/${id}/update_price/`,
+  UPDATE_PRICES: `/stocks/update_prices/`,
+  
+  // Trading & Portfolio
+  PORTFOLIO: '/portfolio/',
+  TRANSACTIONS: '/transactions/',
+  TRADE: '/trade/',
+  DASHBOARD: '/dashboard/',
   
   // Authentification
   LOGIN: '/auth/login/',
   REFRESH_TOKEN: '/auth/refresh/',
   LOGOUT: '/auth/logout/',
+
+  // Gamification
+  GAMIFICATION_SUMMARY: '/gamification/',
+  GAMIFICATION_UPDATE: '/gamification/update/',
+  USER_BADGES: '/user-badges/',
+  USER_ACHIEVEMENTS: '/user-achievements/',
+  DAILY_STREAK: '/daily-streak/',
+
+  // Leaderboard & Meta
+  BADGES: '/badges/',
+  LEADERBOARD: '/leaderboard/',
+  ACHIEVEMENTS: '/achievements/',
+  NOTIFICATIONS: '/notifications/',
+  NOTIFICATIONS_MARK_ALL_READ: '/notifications/mark_all_read/',
+
+  // Watchlist & Missions
+  WATCHLIST: '/watchlist/',
+  MISSIONS: '/missions/',
 } as const;
 
 // En-têtes par défaut

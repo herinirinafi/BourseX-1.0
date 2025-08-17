@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BottomTabBar } from '../../src/components/navigation/BottomTabBar';
 
 type MenuItem = {
   id: string;
@@ -46,6 +47,9 @@ export default function HomeScreen() {
           <Text style={styles.footerText}>© 2025 BourseX</Text>
         </View>
       </ScrollView>
+      
+      {/* Bottom Navigation */}
+      <BottomTabBar />
     </LinearGradient>
   );
 }

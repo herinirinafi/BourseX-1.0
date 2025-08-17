@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { ViewToken } from 'react-native';
+import { BottomTabBar } from '../../src/components/navigation/BottomTabBar';
 
 type Slide = {
   id: string;
@@ -165,6 +166,9 @@ export default function TutorialScreen() {
           </TouchableOpacity>
         )}
       </View>
+      
+      {/* Bottom Navigation */}
+      <BottomTabBar />
     </View>
   );
 }

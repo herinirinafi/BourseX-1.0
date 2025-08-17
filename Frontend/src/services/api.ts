@@ -1,4 +1,5 @@
-import { API_BASE_URL, ENDPOINTS, DEFAULT_HEADERS, REQUEST_TIMEOUT } from '../config/api.js';
+import { ENDPOINTS } from '../config/api';
+import { apiClient } from './apiClient';
 import { Alert } from 'react-native';
 
 export interface Stock {
@@ -17,47 +18,9 @@ export interface PriceHistory {
   timestamp: string;
 }
 
-const handleResponse = async (response: Response) => {
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({
-      message: `Request failed with status ${response.status}`
-    }));
-    const errorMessage = errorData.detail || errorData.message || 'Something went wrong';
-    throw new Error(`API Error (${response.status}): ${errorMessage}`);
-  }
-  return response.json();
-};
-
-const fetchWithTimeout = async (url: string, options: RequestInit, timeout = REQUEST_TIMEOUT) => {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeout);
-
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-    clearTimeout(id);
-    return response;
-  } catch (error: any) {
-    clearTimeout(id);
-    if (error.name === 'AbortError') {
-      throw new Error('Request timed out. Please check your internet connection and try again.');
-    }
-    throw error;
-  }
-};
-
 export const fetchStocks = async (): Promise<Stock[]> => {
   try {
-    const response = await fetchWithTimeout(
-      `${API_BASE_URL}${ENDPOINTS.STOCKS}`,
-      {
-        method: 'GET',
-        headers: DEFAULT_HEADERS,
-      }
-    );
-    return handleResponse(response);
+  return await apiClient.get(ENDPOINTS.STOCKS) as unknown as Stock[];
   } catch (error: any) {
     console.error('Error fetching stocks:', error);
     throw error;
@@ -66,14 +29,7 @@ export const fetchStocks = async (): Promise<Stock[]> => {
 
 export const fetchStockDetail = async (id: string | number): Promise<Stock> => {
   try {
-    const response = await fetchWithTimeout(
-      `${API_BASE_URL}${ENDPOINTS.STOCK_DETAIL(id)}`,
-      {
-        method: 'GET',
-        headers: DEFAULT_HEADERS,
-      }
-    );
-    return handleResponse(response);
+  return await apiClient.get(ENDPOINTS.STOCK_DETAIL(id)) as unknown as Stock;
   } catch (error: any) {
     console.error(`Error fetching stock details for ID ${id}:`, error);
     throw error;
@@ -82,33 +38,31 @@ export const fetchStockDetail = async (id: string | number): Promise<Stock> => {
 
 export const fetchStockHistory = async (id: string | number): Promise<PriceHistory[]> => {
   try {
-    const response = await fetchWithTimeout(
-      `${API_BASE_URL}${ENDPOINTS.STOCK_HISTORY(id)}`,
-      {
-        method: 'GET',
-        headers: DEFAULT_HEADERS,
-      }
-    );
-    return handleResponse(response);
+  return await apiClient.get(ENDPOINTS.STOCK_HISTORY(id)) as unknown as PriceHistory[];
   } catch (error: any) {
     console.error(`Error fetching history for stock ID ${id}:`, error);
     throw error;
   }
 };
 
+export const updateStockPrices = async (): Promise<Stock[]> => {
+  try {
+  return await apiClient.post(ENDPOINTS.UPDATE_PRICES, {}) as unknown as Stock[];
+  } catch (error: any) {
+    console.error('Error updating stock prices:', error);
+    throw error;
+  }
+};
+
+// Backward-compatible function used by hooks/components
 export const updateStockPrice = async (id: string | number, price: number): Promise<Stock> => {
   try {
-    const response = await fetchWithTimeout(
-      `${API_BASE_URL}${ENDPOINTS.UPDATE_PRICE(id)}`,
-      {
-        method: 'POST',
-        headers: DEFAULT_HEADERS,
-        body: JSON.stringify({ price }),
-      }
-    );
-    return handleResponse(response);
+    // Backend does not support per-stock manual price update; trigger bulk update instead
+    await updateStockPrices();
+    // Then return the refreshed stock details
+    return await fetchStockDetail(id);
   } catch (error: any) {
-    console.error(`Error updating price for stock ID ${id}:`, error);
+    console.error(`Error updating stock (simulated) for ID ${id}:`, error);
     throw error;
   }
 };
@@ -124,10 +78,32 @@ export const showErrorAlert = (error: Error) => {
 
 export const testBackendConnection = async (): Promise<boolean> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/health/`);
-    return response.ok;
+    await apiClient.get(ENDPOINTS.DASHBOARD);
+    return true;
   } catch (error) {
     console.error('Erreur de connexion au backend:', error);
     return false;
   }
+};
+
+// Portfolio and Transactions
+export const fetchPortfolio = async () => {
+  return apiClient.get(ENDPOINTS.PORTFOLIO);
+};
+
+export const fetchTransactions = async () => {
+  return apiClient.get(ENDPOINTS.TRANSACTIONS);
+};
+
+export const executeTrade = async (stock_id: number, trade_type: 'BUY' | 'SELL', quantity: number) => {
+  return apiClient.post(ENDPOINTS.TRADE, { stock_id, trade_type, quantity });
+};
+
+export const fetchDashboard = async () => {
+  return apiClient.get(ENDPOINTS.DASHBOARD);
+};
+
+// Missions
+export const fetchMissions = async () => {
+  return apiClient.get(ENDPOINTS.MISSIONS);
 };

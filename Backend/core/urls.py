@@ -20,6 +20,7 @@ router.register(r'notifications', views.NotificationViewSet, basename='notificat
 urlpatterns = [
     path('', include(router.urls)),
     path('trade/', views.execute_trade, name='execute-trade'),
+    path('me/', views.me, name='me'),
     path('dashboard/', views.dashboard_data, name='dashboard-data'),
     path('gamification/', views.gamification_summary, name='gamification-summary'),
     path('gamification/update/', views.update_gamification, name='update-gamification'),

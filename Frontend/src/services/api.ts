@@ -95,12 +95,23 @@ export const fetchTransactions = async () => {
   return apiClient.get(ENDPOINTS.TRANSACTIONS);
 };
 
-export const executeTrade = async (stock_id: number, trade_type: 'BUY' | 'SELL', quantity: number) => {
-  return apiClient.post(ENDPOINTS.TRADE, { stock_id, trade_type, quantity });
+export const executeTrade = async (
+  stockRef: number | { symbol: string },
+  trade_type: 'BUY' | 'SELL',
+  quantity: number
+) => {
+  if (typeof stockRef === 'number') {
+    return apiClient.post(ENDPOINTS.TRADE, { stock_id: stockRef, trade_type, quantity });
+  }
+  return apiClient.post(ENDPOINTS.TRADE, { symbol: stockRef.symbol, trade_type, quantity });
 };
 
 export const fetchDashboard = async () => {
   return apiClient.get(ENDPOINTS.DASHBOARD);
+};
+
+export const fetchMe = async () => {
+  return apiClient.get('/me/');
 };
 
 // Missions

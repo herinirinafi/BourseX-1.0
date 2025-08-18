@@ -3,41 +3,33 @@ import { StatusBar } from 'expo-status-bar';
 import { TradingProvider } from '../src/contexts/TradingContext';
 import { GamificationProvider } from '../src/contexts/GamificationContext';
 import { AuthProvider } from '../src/contexts/AuthContext';
+import { CurrencyProvider } from '../src/contexts/CurrencyContext';
+import { I18nProvider } from '../src/contexts/I18nContext';
 import { View } from 'react-native';
+import Toast from 'react-native-toast-message';
 
 export default function RootLayout() {
   return (
-    <View style={{ flex: 1, backgroundColor: '#121212' }}>
+  <View style={{ flex: 1, backgroundColor: '#121212' }}>
       <AuthProvider>
+        <I18nProvider defaultLang="fr">
+        <CurrencyProvider>
         <TradingProvider>
           <GamificationProvider>
           <StatusBar style="light" />
-          <Stack screenOptions={{
-            headerShown: false,
-            animation: 'fade',
-            contentStyle: { 
-              backgroundColor: '#121212',
-            },
-            headerTitleStyle: {
-              color: '#FFFFFF',
-              fontWeight: '600',
-            },
-          }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="home" />
-            <Stack.Screen name="search" />
-            <Stack.Screen name="dashboard" />
-            <Stack.Screen name="trading" />
-            <Stack.Screen name="portfolio" />
-            <Stack.Screen name="leaderboard" />
-            <Stack.Screen name="notifications" />
-            <Stack.Screen name="transactions" />
-            <Stack.Screen name="missions" />
-            <Stack.Screen name="tutorial" />
-            <Stack.Screen name="login" />
-          </Stack>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              animation: 'fade',
+              contentStyle: { backgroundColor: '#121212' },
+              headerTitleStyle: { color: '#FFFFFF', fontWeight: '600' },
+            }}
+          />
+          <Toast position="top" topOffset={60} />
           </GamificationProvider>
         </TradingProvider>
+        </CurrencyProvider>
+        </I18nProvider>
       </AuthProvider>
     </View>
   );

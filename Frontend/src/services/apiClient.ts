@@ -1,4 +1,5 @@
-import { API_BASE_URL, DEFAULT_HEADERS, REQUEST_TIMEOUT, MAX_RETRIES } from '../config/api';
+import { API_BASE_URL, DEFAULT_HEADERS, REQUEST_TIMEOUT, MAX_RETRIES, ENDPOINTS } from '../config/api';
+import { getAuthToken, getRefreshToken, setAuthToken } from './authToken';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -51,7 +52,11 @@ export class ApiClient {
       ...DEFAULT_HEADERS,
       ...headers,
     };
-  const effectiveToken = token ?? currentToken;
+    // Avoid sending Content-Type when there is no request body (prevents unnecessary CORS preflight on GET)
+    if (body === undefined) {
+      delete mergedHeaders['Content-Type'];
+    }
+  const effectiveToken = token ?? currentToken ?? getAuthToken();
   if (effectiveToken) mergedHeaders['Authorization'] = `Bearer ${effectiveToken}`;
 
     const url = `${this.baseURL}${path}`;
@@ -64,6 +69,7 @@ export class ApiClient {
     }
 
     let attempt = 0;
+    let hasRetriedWithRefresh = false;
     while (true) {
       try {
         const response = await withTimeout(fetch(url, payload), timeout);
@@ -74,6 +80,40 @@ export class ApiClient {
             const data = text ? JSON.parse(text) : null;
             message = (data?.detail || data?.message || message);
           } catch {}
+          // If unauthorized, try refresh token flow once (except on auth endpoints themselves)
+          if (response.status === 401 && !hasRetriedWithRefresh && path !== ENDPOINTS.LOGIN && path !== ENDPOINTS.REFRESH_TOKEN) {
+            const refresh = getRefreshToken?.() as string | null;
+            if (refresh) {
+              try {
+                // attempt refresh
+                const refreshRes = await withTimeout(
+                  fetch(`${this.baseURL}${ENDPOINTS.REFRESH_TOKEN}`,
+                    {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                      body: JSON.stringify({ refresh }),
+                    }
+                  ),
+                  timeout
+                );
+                if (refreshRes.ok) {
+                  const refreshJson: any = await refreshRes.json();
+                  const newAccess = refreshJson?.access as string | undefined;
+                  if (newAccess) {
+                    setAuthToken?.(newAccess);
+                    setApiAuthToken(newAccess);
+                    // retry original request with new token
+                    mergedHeaders['Authorization'] = `Bearer ${newAccess}`;
+                    payload.headers = mergedHeaders;
+                    hasRetriedWithRefresh = true;
+                    continue; // loop to retry
+                  }
+                }
+              } catch {
+                // fallthrough to throw
+              }
+            }
+          }
           const error = new Error(message) as any;
           (error.status = response.status);
           throw error;

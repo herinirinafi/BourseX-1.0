@@ -8,10 +8,17 @@ from .models import (
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ['user', 'level', 'xp', 'balance', 'total_trades', 'win_rate', 'trading_score']
+    list_display = ['user', 'level', 'xp', 'balance', 'total_trades', 'computed_win_rate', 'trading_score']
     list_filter = ['level', 'risk_tolerance', 'created_at']
     search_fields = ['user__username', 'user__email']
     readonly_fields = ['trading_score', 'badge_count', 'next_level_xp', 'xp_progress']
+
+    def computed_win_rate(self, obj):
+        if obj.total_trades == 0:
+            return "0%"
+        rate = round((obj.successful_trades / obj.total_trades) * 100, 2)
+        return f"{rate}%"
+    computed_win_rate.short_description = 'Win Rate'
 
 @admin.register(Stock)
 class StockAdmin(admin.ModelAdmin):

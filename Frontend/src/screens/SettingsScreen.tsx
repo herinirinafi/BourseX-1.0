@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Switch, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useI18n } from '../contexts/I18nContext';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
 const SettingsScreen = () => {
+  const { t } = useI18n();
   const [darkMode, setDarkMode] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [biometricAuth, setBiometricAuth] = useState(false);
@@ -12,20 +15,20 @@ const SettingsScreen = () => {
     try {
       const keys = await AsyncStorage.getAllKeys();
       await AsyncStorage.multiRemove(keys);
-      Alert.alert('Success', 'Cache cleared successfully');
+      Alert.alert(t('common.success'), t('success.cacheCleared'));
     } catch (error) {
       console.error('Error clearing cache:', error);
-      Alert.alert('Error', 'Failed to clear cache');
+      Alert.alert(t('common.error'), t('error.failedToClear'));
     }
   };
 
   const handleLogout = () => {
     Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
+      t('settings.logout'),
+      t('settings.logoutConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', style: 'destructive', onPress: () => console.log('User logged out') },
+        { text: t('settings.cancel'), style: 'cancel' },
+        { text: t('settings.logout'), style: 'destructive', onPress: () => console.log('User logged out') },
       ]
     );
   };
@@ -80,16 +83,16 @@ const SettingsScreen = () => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={styles.headerTitle}>{t('settings.title')}</Text>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Preferences</Text>
+        <Text style={styles.sectionTitle}>{t('settings.preferences')}</Text>
         <View style={styles.sectionContent}>
           <SettingItem
             icon="dark-mode"
-            title="Dark Mode"
-            description="Switch between light and dark theme"
+            title={t('settings.darkMode')}
+            description={t('settings.darkModeDesc')}
             showSwitch
             switchValue={darkMode}
             onSwitchChange={setDarkMode}
@@ -97,8 +100,8 @@ const SettingsScreen = () => {
           <View style={styles.divider} />
           <SettingItem
             icon="notifications"
-            title="Notifications"
-            description="Enable or disable push notifications"
+            title={t('settings.notifications')}
+            description={t('settings.notificationsDesc')}
             showSwitch
             switchValue={notificationsEnabled}
             onSwitchChange={setNotificationsEnabled}
@@ -106,8 +109,8 @@ const SettingsScreen = () => {
           <View style={styles.divider} />
           <SettingItem
             icon="fingerprint"
-            title="Biometric Authentication"
-            description="Use fingerprint or face ID to login"
+            title={t('settings.biometric')}
+            description={t('settings.biometricDesc')}
             showSwitch
             switchValue={biometricAuth}
             onSwitchChange={setBiometricAuth}
@@ -117,24 +120,19 @@ const SettingsScreen = () => {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
+        <Text style={styles.sectionTitle}>{t('settings.account')}</Text>
         <View style={styles.sectionContent}>
           <SettingItem
             icon="person"
-            title="Edit Profile"
+            title={t('settings.editProfile')}
             onPress={() => {}}
           />
+          <View style={styles.divider} />
+          <LanguageSwitcher />
           <View style={styles.divider} />
           <SettingItem
             icon="lock"
-            title="Change Password"
-            onPress={() => {}}
-          />
-          <View style={styles.divider} />
-          <SettingItem
-            icon="language"
-            title="Language"
-            description="English (US)"
+            title={t('settings.changePassword')}
             onPress={() => {}}
             isLast
           />
@@ -142,31 +140,31 @@ const SettingsScreen = () => {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Support</Text>
+        <Text style={styles.sectionTitle}>{t('settings.support')}</Text>
         <View style={styles.sectionContent}>
           <SettingItem
             icon="help"
-            title="Help Center"
+            title={t('settings.helpCenter')}
             onPress={() => {}}
           />
           <View style={styles.divider} />
           <SettingItem
             icon="email"
-            title="Contact Us"
+            title={t('settings.contactUs')}
             onPress={() => {}}
           />
           <View style={styles.divider} />
           <SettingItem
             icon="info"
-            title="About"
-            description="Version 1.0.0"
+            title={t('settings.about')}
+            description={t('settings.version')}
             onPress={() => {}}
           />
           <View style={styles.divider} />
           <SettingItem
             icon="delete"
-            title="Clear Cache"
-            description="Clear all cached data"
+            title={t('settings.clearCache')}
+            description={t('settings.clearCacheDesc')}
             onPress={handleClearCache}
           />
         </View>
@@ -179,14 +177,14 @@ const SettingsScreen = () => {
             onPress={handleLogout}
           >
             <MaterialIcons name="logout" size={20} color="#FF3B30" />
-            <Text style={styles.logoutButtonText}>Logout</Text>
+            <Text style={styles.logoutButtonText}>{t('settings.logout')}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>BourseX © 2023</Text>
-        <Text style={styles.footerText}>All rights reserved</Text>
+        <Text style={styles.footerText}>{t('settings.allRightsReserved')}</Text>
       </View>
     </ScrollView>
   );

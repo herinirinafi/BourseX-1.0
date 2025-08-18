@@ -4,9 +4,12 @@
  */
 
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import { Platform } from 'react-native';
 import { gamificationService } from '../services/gamificationService';
 import { pushNotificationService } from '../services/pushNotificationService';
 import { gamificationAnalytics } from '../services/gamificationAnalytics';
+import { useAuth } from './AuthContext';
+import { showToast } from '../services/toast';
 
 // État initial
 const initialState = {
@@ -152,21 +155,52 @@ const GamificationContext = createContext();
 // Provider
 export const GamificationProvider = ({ children }) => {
   const [state, dispatch] = useReducer(gamificationReducer, initialState);
+  const { isAuthenticated, logout } = useAuth();
 
   // Initialisation
   useEffect(() => {
-    initializeGamification();
-  }, []);
+    if (isAuthenticated) {
+      initializeGamification();
+    } else {
+      // When logged out, clear minimal state and avoid network calls
+      dispatch({ type: ACTIONS.SET_NOTIFICATIONS, payload: [] });
+      dispatch({ type: ACTIONS.SET_USER_BADGES, payload: [] });
+      dispatch({ type: ACTIONS.SET_USER_ACHIEVEMENTS, payload: [] });
+      dispatch({ type: ACTIONS.SET_USER_PROFILE, payload: null });
+      dispatch({ type: ACTIONS.SET_DAILY_STREAK, payload: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   const initializeGamification = async () => {
     try {
       dispatch({ type: ACTIONS.SET_LOADING, payload: true });
+      // Éviter les appels si non authentifié
+      if (!isAuthenticated) {
+        dispatch({ type: ACTIONS.SET_LOADING, payload: false });
+        return;
+      }
       
       // Initialiser les services
-      await pushNotificationService.initialize();
+      if (Platform.OS !== 'web') {
+        await pushNotificationService.initialize();
+      }
       gamificationAnalytics.trackEvent('gamification_session_started');
-      
-      // Charger les données initiales
+
+      // Vérifier l'autorisation avec un appel léger avant de paralléliser
+      try {
+        await gamificationService.getGamificationSummary();
+      } catch (err) {
+        const status = err?.status || err?.response?.status;
+        if (status === 401) {
+          showToast?.info?.('Session expirée', 'Veuillez vous reconnecter');
+          logout?.();
+          return; // Stop further calls
+        }
+        throw err;
+      }
+
+      // Charger les données initiales (maintenant que l'auth est validée)
       await Promise.all([
         loadUserProfile(),
         loadUserBadges(),

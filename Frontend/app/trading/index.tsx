@@ -7,11 +7,15 @@ import { useTheme } from '../../src/config/theme';
 import { useTrading } from '../../src/contexts/TradingContext';
 import { useGamification } from '../../src/contexts/GamificationContext';
 import { Asset } from '../../src/types';
+import { showToast } from '../../src/services/toast';
+import { formatCurrency } from '../../src/config/currency';
+import { useCurrency } from '../../src/contexts/CurrencyContext';
 
 const TradingScreen = () => {
   const theme = useTheme();
   const { assets, user, buyAsset, sellAsset } = useTrading();
   const { triggerGamificationUpdate } = useGamification();
+  const { format, symbol } = useCurrency();
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [amount, setAmount] = useState('');
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
@@ -28,26 +32,47 @@ const TradingScreen = () => {
       return;
     }
 
+    // Additional validation for sell orders
+    if (tradeType === 'sell') {
+      const portfolioItem = user.portfolio.find(p => p.assetId === selectedAsset.id);
+      if (!portfolioItem) {
+        Alert.alert('Erreur', 'Vous ne possédez pas cet actif dans votre portefeuille');
+        return;
+      }
+      if (portfolioItem.quantity < quantity) {
+        Alert.alert('Erreur', `Quantité insuffisante. Vous possédez ${portfolioItem.quantity} ${selectedAsset.symbol}, mais tentez de vendre ${quantity}`);
+        return;
+      }
+    }
+
     try {
       if (tradeType === 'buy') {
-        buyAsset(selectedAsset.id, quantity);
+        await buyAsset(selectedAsset.id, quantity);
       } else {
-        sellAsset(selectedAsset.id, quantity);
+        await sellAsset(selectedAsset.id, quantity);
       }
       
       // 🎮 Déclencher la mise à jour de la gamification après le trade
       await triggerGamificationUpdate();
       
       setAmount('');
+      showToast.success('Transaction réussie', `${tradeType === 'buy' ? 'Achat' : 'Vente'} de ${selectedAsset.symbol}`);
       Alert.alert('Succès', `${tradeType === 'buy' ? 'Achat' : 'Vente'} réalisé avec succès!`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors du trade:', error);
-      Alert.alert('Erreur', 'Échec de la transaction');
+      const errorMessage = error?.message || 'Erreur inconnue';
+      showToast.error('Échec de la transaction', errorMessage);
+      Alert.alert('Erreur', errorMessage);
+  Alert.alert('Erreur', 'Échec de la transaction');
     }
   };
 
   const maxBuy = selectedAsset 
     ? Math.floor(user.balance / selectedAsset.currentPrice * 100) / 100 
+    : 0;
+    
+  const portfolioQuantity = selectedAsset 
+    ? (user.portfolio.find(p => p.assetId === selectedAsset.id)?.quantity || 0)
     : 0;
 
   return (
@@ -73,7 +98,7 @@ const TradingScreen = () => {
               Solde disponible
             </Typography>
             <Typography variant="h2" color="text" weight="700">
-              ${user?.balance?.toFixed(2) || '0.00'}
+              {formatCurrency(user?.balance ?? 0)}
             </Typography>
           </View>
         </GlassCard>
@@ -122,6 +147,7 @@ const TradingScreen = () => {
             
             <TouchableOpacity
               style={[
+                { marginLeft: 8 },
                 styles.tradeTypeTab,
                 tradeType === 'sell' && { backgroundColor: theme.colors.error }
               ]}
@@ -150,6 +176,7 @@ const TradingScreen = () => {
                 key={asset.id}
                 style={[
                   styles.assetItem,
+                  { marginRight: 12 },
                   selectedAsset?.id === asset.id && {
                     backgroundColor: theme.colors.primary,
                   }
@@ -175,7 +202,7 @@ const TradingScreen = () => {
                     color={selectedAsset?.id === asset.id ? 'white' : 'text'}
                     weight="500"
                   >
-                    ${asset.currentPrice?.toFixed(2)}
+                    {formatCurrency(asset.currentPrice)}
                   </Typography>
                 </View>
               </TouchableOpacity>
@@ -194,10 +221,20 @@ const TradingScreen = () => {
                 <Typography variant="body1" color="white">
                   {selectedAsset.name}
                 </Typography>
+                {/* Portfolio quantity display */}
+                {(() => {
+                  const portfolioItem = user.portfolio.find(p => p.assetId === selectedAsset.id);
+                  const quantity = portfolioItem?.quantity || 0;
+                  return (
+                    <Typography variant="body2" color="white" style={{ opacity: 0.8, marginTop: 4 }}>
+                      Possédé: {quantity.toFixed(4)} {selectedAsset.symbol}
+                    </Typography>
+                  );
+                })()}
               </View>
               <View style={styles.priceContainer}>
                 <Typography variant="h2" color="white" weight="700">
-                  ${selectedAsset.currentPrice?.toFixed(2)}
+                  {format(selectedAsset.currentPrice)}
                 </Typography>
                 <Typography variant="body2" color="white">
                   +2.5% ↗
@@ -211,7 +248,7 @@ const TradingScreen = () => {
         {selectedAsset && (
           <Card style={styles.inputCard} variant="default" padding="lg">
             <Typography variant="h4" color="text" weight="600" style={styles.inputLabel}>
-              Montant ({tradeType === 'buy' ? 'USD' : selectedAsset.symbol})
+              Habetsahana ({tradeType === 'buy' ? symbol : selectedAsset.symbol})
             </Typography>
             
             <TextInput
@@ -227,9 +264,9 @@ const TradingScreen = () => {
               {['25%', '50%', '75%', '100%'].map((percentage) => (
                 <TouchableOpacity
                   key={percentage}
-                  style={[styles.quickAmountBtn, { borderColor: theme.colors.primary }]}
+                  style={[styles.quickAmountBtn, { borderColor: theme.colors.primary, marginRight: 8 }]}
                   onPress={() => {
-                    const maxAmount = tradeType === 'buy' ? maxBuy : 1; // Simplified
+                    const maxAmount = tradeType === 'buy' ? maxBuy : portfolioQuantity;
                     const percent = parseInt(percentage) / 100;
                     setAmount((maxAmount * percent).toFixed(tradeType === 'buy' ? 2 : 4));
                   }}
@@ -241,11 +278,17 @@ const TradingScreen = () => {
               ))}
             </View>
 
-            {tradeType === 'buy' && (
-              <Typography variant="body2" color="textSecondary" style={styles.maxInfo}>
-                Maximum: ${maxBuy.toFixed(2)}
-              </Typography>
-            )}
+              {tradeType === 'buy' && (
+                <Typography variant="body2" color="textSecondary" style={styles.maxInfo}>
+                  Ambony indrindra: {format(maxBuy)}
+                </Typography>
+              )}
+              
+              {tradeType === 'sell' && (
+                <Typography variant="body2" color="textSecondary" style={styles.maxInfo}>
+                  Maximum: {portfolioQuantity.toFixed(4)} {selectedAsset?.symbol}
+                </Typography>
+              )}
           </Card>
         )}
 
@@ -269,23 +312,16 @@ const TradingScreen = () => {
             </View>
             
             <View style={styles.summaryRow}>
-              <Typography variant="body1" color="textSecondary">
-                Prix unitaire
-              </Typography>
-              <Typography variant="body1" color="text" weight="600">
-                ${selectedAsset.currentPrice.toFixed(2)}
-              </Typography>
+              <Typography variant="body1" color="textSecondary">Vidiny isanisany</Typography>
+              <Typography variant="body1" color="text" weight="600">{format(selectedAsset.currentPrice)}</Typography>
             </View>
             
             <View style={styles.summaryRow}>
-              <Typography variant="body1" color="textSecondary">
-                Total
-              </Typography>
+              <Typography variant="body1" color="textSecondary">Totaly</Typography>
               <Typography variant="h4" color="text" weight="700">
-                {tradeType === 'buy' 
-                  ? `$${parseFloat(amount).toFixed(2)}`
-                  : `$${(parseFloat(amount) * selectedAsset.currentPrice).toFixed(2)}`
-                }
+                {tradeType === 'buy'
+                  ? format(parseFloat(amount))
+                  : format(parseFloat(amount) * selectedAsset.currentPrice)}
               </Typography>
             </View>
           </GlassCard>
@@ -337,7 +373,9 @@ const styles = StyleSheet.create({
   },
   tradeTypeTabs: {
     flexDirection: 'row',
-    gap: 8,
+  // Replace gap with spacing via margins
+  // gap is not fully supported on react-native-web
+  // We'll simulate by adding marginRight on children
   },
   tradeTypeTab: {
     flex: 1,
@@ -367,7 +405,7 @@ const styles = StyleSheet.create({
   },
   assetInfo: {
     alignItems: 'center',
-    gap: 4,
+  // Simulate gap with margins where needed
   },
   selectedAssetCard: {
     marginBottom: 16,
@@ -397,7 +435,7 @@ const styles = StyleSheet.create({
   },
   quickAmounts: {
     flexDirection: 'row',
-    gap: 8,
+  // Simulate gap via margins
     marginBottom: 12,
   },
   quickAmountBtn: {

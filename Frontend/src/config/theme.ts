@@ -79,10 +79,10 @@ export interface Theme {
 
 export const lightTheme: Theme = {
   colors: {
-    // Primary colors - Futuristic blue/cyan palette
-    primary: '#00D4FF',
-    primaryLight: '#66E3FF',
-    primaryDark: '#0099CC',
+    // Primary colors - Professional gold/blue palette
+    primary: '#FFD700',
+    primaryLight: '#FFF700',
+    primaryDark: '#B8860B',
     
     // Background colors - Clean whites and light grays
     background: '#FAFBFC',
@@ -114,8 +114,8 @@ export const lightTheme: Theme = {
   },
   
   gradients: {
-    primary: ['#00D4FF', '#0099CC'],
-    secondary: ['#8B5CF6', '#A78BFA'],
+    primary: ['#FFD700', '#B8860B'],
+    secondary: ['#1E3A8A', '#3B82F6'],
     success: ['#10B981', '#059669'],
     card: ['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.7)'],
   },

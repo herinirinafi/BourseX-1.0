@@ -1,6 +1,6 @@
 // src/components/ui/Card.tsx
-import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import React, { Children } from 'react';
+import { View, StyleSheet, ViewStyle, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../config/theme';
 
@@ -18,6 +18,12 @@ export const Card: React.FC<CardProps> = ({
   padding = 'md'
 }) => {
   const theme = useTheme();
+  const normalizedChildren = Children.map(children, (child) => {
+    if (typeof child === 'string' || typeof child === 'number') {
+      return <Text>{child}</Text>;
+    }
+    return child as any;
+  });
   
   const paddingValue = theme.spacing[padding];
   
@@ -42,7 +48,7 @@ export const Card: React.FC<CardProps> = ({
           },
           theme.shadows.md,
         ]}>
-          {children}
+          {normalizedChildren}
         </View>
       );
       
@@ -54,7 +60,7 @@ export const Card: React.FC<CardProps> = ({
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          {children}
+          {normalizedChildren}
         </LinearGradient>
       );
       
@@ -67,7 +73,7 @@ export const Card: React.FC<CardProps> = ({
           },
           theme.shadows.xl,
         ]}>
-          {children}
+          {normalizedChildren}
         </View>
       );
       
@@ -80,7 +86,7 @@ export const Card: React.FC<CardProps> = ({
           },
           theme.shadows.md,
         ]}>
-          {children}
+          {normalizedChildren}
         </View>
       );
   }

@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { setAuthToken, getAuthToken } from '../services/authToken';
+import { setAuthToken, getAuthToken, setRefreshToken, loadTokensFromStorage, getRefreshToken } from '../services/authToken';
 import { setApiAuthToken } from '../services/apiClient';
 
 export type AuthContextValue = {
@@ -8,18 +8,37 @@ export type AuthContextValue = {
   isAuthenticated: boolean;
   logout: () => void;
   loginWithToken: (token: string) => void;
+  setRefresh: (refresh: string | null) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setTokenState] = useState<string | null>(getAuthToken());
+  const [refresh, setRefreshState] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
 
   // Keep api client in sync
   useEffect(() => {
+    // Hydrate tokens from storage on initial mount
+    (async () => {
+      await loadTokensFromStorage();
+      setTokenState(getAuthToken());
+      setRefreshState(getRefreshToken());
+      setApiAuthToken(getAuthToken());
+      setHydrated(true);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
     setAuthToken(token);
     setApiAuthToken(token);
-  }, [token]);
+  }, [token, hydrated]);
+
+  useEffect(() => {
+    setRefreshToken(refresh);
+  }, [refresh]);
 
   const setToken = useCallback((t: string | null) => {
     setTokenState(t);
@@ -27,10 +46,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(() => {
     setTokenState(null);
+  setRefreshState(null);
+  // Immediately clear token stores to prevent stale headers
+  setAuthToken(null);
+  setRefreshToken(null);
+  setApiAuthToken(null);
   }, []);
 
   const loginWithToken = useCallback((t: string) => {
-    setTokenState(t || null);
+  // Set state and immediately sync to token stores to avoid race
+  setTokenState(t || null);
+  setAuthToken(t || null);
+  setApiAuthToken(t || null);
+  }, []);
+
+  const setRefresh = useCallback((t: string | null) => {
+  setRefreshState(t);
+  // Sync refresh token immediately for auto-refresh
+  setRefreshToken(t);
   }, []);
 
   const value = useMemo<AuthContextValue>(() => ({
@@ -39,8 +72,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAuthenticated: !!token,
     logout,
     loginWithToken,
-  }), [token, setToken, logout, loginWithToken]);
+    setRefresh,
+  }), [token, setToken, logout, loginWithToken, setRefresh]);
 
+  if (!hydrated) return null; // wait for token hydration to avoid unauthenticated initial fetches
   return (
     <AuthContext.Provider value={value}>
       {children}

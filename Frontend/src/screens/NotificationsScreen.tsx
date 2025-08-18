@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Typography, Card, GlassCard } from '../components/ui';
 import { useTheme } from '../config/theme';
 import { useGamification } from '../contexts/GamificationContext';
+import { showToast } from '../services/toast';
 
 interface Notification {
   id: string;
@@ -84,7 +85,17 @@ const NotificationsScreen = () => {
           </View>
           
           {unreadCount > 0 && (
-            <TouchableOpacity onPress={markAllNotificationsAsRead} style={styles.markAllButton}>
+            <TouchableOpacity
+              onPress={async () => {
+                try {
+                  await markAllNotificationsAsRead();
+                  showToast.success('Notifications', 'Toutes marquées comme lues');
+                } catch {
+                  showToast.error('Échec', "Impossible de marquer comme lues");
+                }
+              }}
+              style={styles.markAllButton}
+            >
               <Typography variant="body2" color="primary" weight="600">
                 Tout marquer comme lu
               </Typography>
@@ -97,7 +108,14 @@ const NotificationsScreen = () => {
       {mapped.map((notification) => (
             <TouchableOpacity
               key={notification.id}
-        onPress={() => markNotificationAsRead(notification.id as any)}
+              onPress={async () => {
+                try {
+                  await markNotificationAsRead(notification.id as any);
+                  showToast.info('Notification lue');
+                } catch {
+                  showToast.error('Échec', "Action impossible");
+                }
+              }}
               activeOpacity={0.8}
             >
               <Card

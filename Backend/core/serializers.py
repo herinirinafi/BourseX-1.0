@@ -26,7 +26,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'user', 'balance', 'xp', 'level', 'total_profit', 'total_trades',
             'successful_trades', 'win_rate', 'trading_score',
             'risk_tolerance', 'created_at', 'badge_count',
-            'next_level_xp', 'xp_progress', 'bio', 'avatar_url'
+            'next_level_xp', 'xp_progress'
         ]
     
     def get_win_rate(self, obj):
@@ -61,10 +61,16 @@ class PortfolioSerializer(serializers.ModelSerializer):
         fields = ['id', 'stock', 'quantity', 'average_price', 'current_value', 'profit_loss', 'created_at']
     
     def get_current_value(self, obj):
-        return obj.quantity * obj.stock.current_price
+        try:
+            return float(obj.quantity) * float(obj.stock.current_price)
+        except Exception:
+            return 0.0
     
     def get_profit_loss(self, obj):
-        return (obj.stock.current_price - obj.average_price) * obj.quantity
+        try:
+            return (float(obj.stock.current_price) - float(obj.average_price)) * float(obj.quantity)
+        except Exception:
+            return 0.0
 
 class TransactionSerializer(serializers.ModelSerializer):
     stock = StockSerializer(read_only=True)
@@ -93,9 +99,17 @@ class WatchlistSerializer(serializers.ModelSerializer):
         fields = ['id', 'stock', 'added_at']
 
 class TradeSerializer(serializers.Serializer):
-    stock_id = serializers.IntegerField()
+    stock_id = serializers.IntegerField(required=False)
+    symbol = serializers.CharField(required=False, allow_blank=False)
     quantity = serializers.DecimalField(max_digits=10, decimal_places=6)
     trade_type = serializers.ChoiceField(choices=['BUY', 'SELL'])
+
+    def validate(self, attrs):
+        stock_id = attrs.get('stock_id')
+        symbol = attrs.get('symbol')
+        if stock_id is None and not symbol:
+            raise serializers.ValidationError('Either stock_id or symbol is required')
+        return attrs
 
 # Nouveaux sérialiseurs pour la gamification avancée
 
@@ -152,7 +166,7 @@ class DailyStreakSerializer(serializers.ModelSerializer):
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
-        fields = ['id', 'notification_type', 'title', 'message', 'is_read', 'created_at']
+        fields = ['id', 'notification_type', 'title', 'message', 'is_read', 'data', 'created_at']
 
 class GamificationSummarySerializer(serializers.Serializer):
     """Sérialiseur pour le résumé complet de gamification"""

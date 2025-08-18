@@ -69,6 +69,7 @@ export const Button: React.FC<ButtonProps> = ({
   ];
 
   if (variant === 'gradient') {
+  const normalizedTitle = typeof title === 'string' || typeof title === 'number' ? String(title) : '';
     return (
       <TouchableOpacity onPress={onPress} disabled={disabled} style={baseButtonStyle}>
         <LinearGradient
@@ -77,9 +78,7 @@ export const Button: React.FC<ButtonProps> = ({
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
         >
-          <Text style={[baseTextStyle, { color: theme.colors.textInverse }]}>
-            {title}
-          </Text>
+      <Text style={[baseTextStyle, { color: theme.colors.textInverse }]}>{normalizedTitle}</Text>
         </LinearGradient>
       </TouchableOpacity>
     );

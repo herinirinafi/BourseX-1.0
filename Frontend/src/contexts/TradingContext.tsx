@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Asset, User, Transaction, Mission, MarketEvent } from '../types';
-import { fetchStocks, executeTrade as executeTradeApi } from '../services/api';
+import { fetchStocks, executeTrade as executeTradeApi, fetchTransactions as fetchTransactionsApi, fetchPortfolio, fetchMe } from '../services/api';
+import { getAuthToken } from '../services/authToken';
+import { useAuth } from './AuthContext';
 
 interface TradingContextType {
   user: User;
@@ -8,8 +10,8 @@ interface TradingContextType {
   transactions: Transaction[];
   missions: Mission[];
   marketEvents: MarketEvent[];
-  buyAsset: (assetId: string, amount: number) => Promise<void>;
-  sellAsset: (assetId: string, amount: number) => Promise<void>;
+  buyAsset: (assetId: string, amount: number) => Promise<{ serverSaved: boolean; localOnly: boolean }>;
+  sellAsset: (assetId: string, amount: number) => Promise<{ serverSaved: boolean; localOnly: boolean }>;
   completeMission: (missionId: string) => void;
   fetchMarketData: () => Promise<void>;
   loading: boolean;
@@ -32,8 +34,8 @@ const defaultContext: TradingContextType = {
   transactions: [],
   missions: [],
   marketEvents: [],
-  buyAsset: async () => {},
-  sellAsset: async () => {},
+  buyAsset: async () => ({ serverSaved: false, localOnly: true }),
+  sellAsset: async () => ({ serverSaved: false, localOnly: true }),
   completeMission: () => {},
   fetchMarketData: async () => {},
   loading: false,
@@ -43,6 +45,7 @@ const defaultContext: TradingContextType = {
 const TradingContext = createContext<TradingContextType>(defaultContext);
 
 export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { token, isAuthenticated } = useAuth();
   const [user, setUser] = useState<User>(defaultUser);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -59,6 +62,39 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Hydrate user portfolio/transactions/balance once authenticated
+  useEffect(() => {
+    const t = token || getAuthToken();
+    if (!t || !isAuthenticated) return;
+    (async () => {
+      try {
+        const me: any = await fetchMe();
+        if (me && typeof me === 'object') {
+          console.log('fetchMe response:', me); // Debug log
+          const bal = Number(me?.profile?.balance ?? defaultUser.balance);
+          const mappedPortfolio = (me?.portfolio ?? []).map((p: any) => ({
+            assetId: String(p?.stock?.id ?? p?.stock_id ?? p?.stock?.symbol ?? ''),
+            quantity: Number(p?.quantity ?? 0),
+            avgBuyPrice: Number(p?.average_price ?? 0),
+            currentValue: Number(p?.current_value ?? 0), // Add current value from backend
+            currentPrice: Number(p?.stock?.current_price ?? 0), // Add current price
+          }));
+          console.log('Mapped portfolio:', mappedPortfolio); // Debug log
+          const mappedTxs: Transaction[] = (me?.transactions ?? []).map((t: any) => ({
+            id: String(t.id),
+            assetId: String(t?.stock?.id ?? t?.stock_id ?? t?.symbol ?? ''),
+            type: String(t?.transaction_type || t?.type || '').toLowerCase() === 'sell' ? 'sell' : 'buy',
+            quantity: Number(t?.quantity ?? 0),
+            price: Number(t?.price ?? 0),
+            timestamp: new Date(t?.timestamp || t?.created_at || Date.now()),
+          }));
+          setUser(prev => ({ ...prev, balance: bal, portfolio: mappedPortfolio }));
+          if (mappedTxs.length) setTransactions(mappedTxs);
+        }
+      } catch {}
+    })();
+  }, [token, isAuthenticated]);
 
   const loadInitialData = async () => {
     await fetchMarketData();
@@ -135,28 +171,40 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setMarketEvents(events);
   };
 
-  const buyAsset = async (assetId: string, amount: number) => {
-    // Implémenter la logique d'achat
+  const buyAsset = async (assetId: string, amount: number): Promise<{ serverSaved: boolean; localOnly: boolean }> => {
+    // Implémenter la logique d'achat (backend-first)
     const asset = assets.find(a => a.id === assetId);
-    if (!asset) return;
+    if (!asset) throw new Error('Actif introuvable');
 
     const totalCost = asset.currentPrice * amount;
-    if (user.balance < totalCost) return;
+    if (user.balance < totalCost) throw new Error('Solde insuffisant');
 
-    // Mettre à jour le solde de l'utilisateur
+    // 1) Tenter le trade côté backend en premier (si id numérique)
+  const backendStock = assets.find(a => a.id === assetId || a.symbol === assetId);
+  const numericId = backendStock ? Number(backendStock.id) : NaN;
+    const localOnly = Number.isNaN(numericId);
+  let tradeRes: any = null;
+    if (!localOnly) {
+      tradeRes = await executeTradeApi(numericId, 'BUY', amount) as any;
+    } else {
+      // use symbol fallback so server registers the trade
+      const sym = backendStock?.symbol || asset.symbol;
+      tradeRes = await executeTradeApi({ symbol: sym }, 'BUY', amount) as any;
+    }
+
+    // 2) Mettre à jour l'état local si le backend a réussi (ou si pas d'id numérique)
     const updatedUser = {
       ...user,
       balance: user.balance - totalCost,
       portfolio: [...user.portfolio],
     };
 
-    // Mettre à jour le portefeuille
     const portfolioItem = updatedUser.portfolio.find(item => item.assetId === assetId);
     if (portfolioItem) {
       const totalQuantity = portfolioItem.quantity + amount;
-      const totalCost = portfolioItem.avgBuyPrice * portfolioItem.quantity + asset.currentPrice * amount;
+      const totalCostAll = portfolioItem.avgBuyPrice * portfolioItem.quantity + asset.currentPrice * amount;
       portfolioItem.quantity = totalQuantity;
-      portfolioItem.avgBuyPrice = totalCost / totalQuantity;
+      portfolioItem.avgBuyPrice = totalCostAll / totalQuantity;
     } else {
       updatedUser.portfolio.push({
         assetId,
@@ -165,7 +213,6 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
     }
 
-    // Ajouter la transaction
     const newTransaction: Transaction = {
       id: `tx-${Date.now()}`,
       assetId,
@@ -175,29 +222,69 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       timestamp: new Date(),
     };
 
-    try {
-      // Attempt backend trade if possible (requires numeric stock id). Using symbol fallback
-      const backendStock = assets.find(a => a.id === assetId || a.symbol === assetId);
-      if (backendStock) {
-        const numericId = Number(backendStock.id);
-        if (!Number.isNaN(numericId)) {
-          await executeTradeApi(numericId, 'BUY', amount);
-        }
-      }
-  } catch {
-      // Ignore backend errors for now, local state already updated
+    // Synchroniser le solde avec la valeur renvoyée par le serveur si disponible
+    if (tradeRes && tradeRes.new_balance !== undefined && tradeRes.new_balance !== null) {
+      updatedUser.balance = Number(tradeRes.new_balance);
     }
-
     setUser(updatedUser);
     setTransactions([newTransaction, ...transactions]);
+
+    // 3) Synchroniser avec le backend (rafraîchir la liste des transactions)
+    try {
+      const serverTxs = await fetchTransactionsApi() as unknown as any[];
+      const mapped: Transaction[] = (serverTxs || []).map((t: any) => ({
+        id: String(t.id),
+        assetId: String(t?.stock?.id ?? t?.stock_id ?? t?.symbol ?? ''),
+        type: String(t?.transaction_type || t?.type || '').toLowerCase() === 'sell' ? 'sell' : 'buy',
+        quantity: Number(t?.quantity ?? 0),
+        price: Number(t?.price ?? 0),
+        timestamp: new Date(t?.timestamp || t?.created_at || Date.now()),
+      }));
+      if (mapped.length) setTransactions(mapped);
+    } catch {
+      // silencieux si erreur de sync
+    }
+
+    // 4) Hydrater le portefeuille depuis le serveur pour refléter quantités/prix moyens exacts
+    try {
+      const serverPortfolio = await fetchPortfolio() as unknown as any[];
+      const mappedPortfolio = (serverPortfolio || []).map((p: any) => ({
+        assetId: String(p?.stock?.id ?? p?.stock_id ?? p?.stock?.symbol ?? ''),
+        quantity: Number(p?.quantity ?? 0),
+        avgBuyPrice: Number(p?.average_price ?? 0),
+      }));
+      setUser(prev => ({ ...prev, portfolio: mappedPortfolio }));
+    } catch {
+      // ignorer en cas d'erreur (offline, 401, etc.)
+    }
+
+  return { serverSaved: !localOnly, localOnly };
   };
 
-  const sellAsset = async (assetId: string, amount: number) => {
+  const sellAsset = async (assetId: string, amount: number): Promise<{ serverSaved: boolean; localOnly: boolean }> => {
     const asset = assets.find(a => a.id === assetId);
-    if (!asset) return;
+    if (!asset) throw new Error('Actif introuvable');
 
     const portfolioItem = user.portfolio.find(p => p.assetId === assetId);
-    if (!portfolioItem || portfolioItem.quantity < amount) return;
+    if (!portfolioItem) {
+      throw new Error('Vous ne possédez pas cet actif dans votre portefeuille');
+    }
+    
+    if (portfolioItem.quantity < amount) {
+      throw new Error(`Quantité insuffisante. Vous possédez ${portfolioItem.quantity} ${asset.symbol}, mais tentez de vendre ${amount}`);
+    }
+
+    // 1) Trade backend en premier (si id numérique)
+    const backendStock = assets.find(a => a.id === assetId || a.symbol === assetId);
+    const numericId = backendStock ? Number(backendStock.id) : NaN;
+    const localOnly = Number.isNaN(numericId);
+    let sellRes: any = null;
+    if (!localOnly) {
+      sellRes = await executeTradeApi(numericId, 'SELL', amount) as any;
+    } else {
+      const sym = backendStock?.symbol || asset.symbol;
+      sellRes = await executeTradeApi({ symbol: sym }, 'SELL', amount) as any;
+    }
 
     const revenue = asset.currentPrice * amount;
 
@@ -218,18 +305,43 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       timestamp: new Date(),
     };
 
-    try {
-      const backendStock = assets.find(a => a.id === assetId || a.symbol === assetId);
-      const numericId = backendStock ? Number(backendStock.id) : NaN;
-      if (!Number.isNaN(numericId)) {
-        await executeTradeApi(numericId, 'SELL', amount);
-      }
-    } catch {
-      // ignore backend errors; local state already updated
+    // Synchroniser le solde avec la valeur renvoyée par le serveur si disponible
+    if (sellRes && sellRes.new_balance !== undefined && sellRes.new_balance !== null) {
+      updatedUser.balance = Number(sellRes.new_balance);
     }
-
     setUser(updatedUser);
     setTransactions([newTransaction, ...transactions]);
+
+    // 3) Synchroniser avec le backend
+    try {
+      const serverTxs = await fetchTransactionsApi() as unknown as any[];
+      const mapped: Transaction[] = (serverTxs || []).map((t: any) => ({
+        id: String(t.id),
+        assetId: String(t?.stock?.id ?? t?.stock_id ?? t?.symbol ?? ''),
+        type: String(t?.transaction_type || t?.type || '').toLowerCase() === 'sell' ? 'sell' : 'buy',
+        quantity: Number(t?.quantity ?? 0),
+        price: Number(t?.price ?? 0),
+        timestamp: new Date(t?.timestamp || t?.created_at || Date.now()),
+      }));
+      if (mapped.length) setTransactions(mapped);
+    } catch {
+      // silencieux si erreur de sync
+    }
+
+    // 4) Hydrater le portefeuille depuis le serveur
+    try {
+      const serverPortfolio = await fetchPortfolio() as unknown as any[];
+      const mappedPortfolio = (serverPortfolio || []).map((p: any) => ({
+        assetId: String(p?.stock?.id ?? p?.stock_id ?? p?.stock?.symbol ?? ''),
+        quantity: Number(p?.quantity ?? 0),
+        avgBuyPrice: Number(p?.average_price ?? 0),
+      }));
+      setUser(prev => ({ ...prev, portfolio: mappedPortfolio }));
+    } catch {
+      // ignorer en cas d'erreur
+    }
+
+  return { serverSaved: !localOnly, localOnly };
   };
 
   const completeMission = (missionId: string) => {

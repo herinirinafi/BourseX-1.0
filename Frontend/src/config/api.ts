@@ -67,9 +67,6 @@ export const ENDPOINTS = {
 export const DEFAULT_HEADERS = {
   'Content-Type': 'application/json',
   'Accept': 'application/json',
-  'Cache-Control': 'no-cache',
-  'Pragma': 'no-cache',
-  'Expires': '0',
 };
 
 // Fonction pour obtenir les en-têtes d'authentification

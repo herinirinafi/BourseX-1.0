@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
-import { Typography, GlassCard } from '../ui';
+import { View, StyleSheet } from 'react-native';
+import { Typography } from './Typography';
+import { GlassCard } from './GlassCard';
 import { useTheme } from '../../config/theme';
+import { formatCurrency } from '../../config/currency';
 
 interface PriceChartProps {
   data: number[];
@@ -31,7 +33,7 @@ export const PriceChart: React.FC<PriceChartProps> = ({
         </Typography>
         <View style={styles.priceInfo}>
           <Typography variant="h3" color="text" weight="700">
-            ${currentPrice.toFixed(2)}
+            {formatCurrency(currentPrice)}
           </Typography>
           <Typography 
             variant="body2" 

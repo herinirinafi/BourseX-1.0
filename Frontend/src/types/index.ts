@@ -21,6 +21,8 @@ export interface PortfolioItem {
   assetId: string;
   quantity: number;
   avgBuyPrice: number;
+  currentValue?: number; // Add current value from backend
+  currentPrice?: number; // Add current price from backend
 }
 
 export interface Transaction {

@@ -4,6 +4,7 @@
  */
 import { API_BASE_URL, ENDPOINTS } from '../config/api';
 import { apiClient } from './apiClient';
+import { getAuthToken } from './authToken';
 
 export interface Badge {
   id: number;
@@ -89,6 +90,11 @@ class GamificationService {
 
   private async apiCall(endpoint: string, options: any = {}): Promise<any> {
     try {
+      // Avoid calling protected endpoints when not authenticated
+      const token = getAuthToken?.();
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
       const method = (options.method || 'GET') as 'GET' | 'POST' | 'PATCH' | 'DELETE';
       const body = options.body;
       if (method === 'GET') return await apiClient.get(endpoint, options);

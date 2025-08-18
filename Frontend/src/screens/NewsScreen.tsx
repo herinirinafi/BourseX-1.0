@@ -1,18 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useNews } from '../contexts/NewsContext';
+import { useI18n } from '../contexts/I18nContext';
 import { MaterialIcons } from '@expo/vector-icons';
 
 const NewsScreen = () => {
+  const { t } = useI18n();
   const { news, loading, error, fetchNews, fetchStockNews } = useNews();
   const [refreshing, setRefreshing] = useState(false);
   const [activeCategory, setActiveCategory] = useState('general');
 
   const categories = [
-    { id: 'general', name: 'General' },
-    { id: 'business', name: 'Business' },
-    { id: 'technology', name: 'Technology' },
-    { id: 'markets', name: 'Markets' },
+    { id: 'general', name: t('news.general') },
+    { id: 'business', name: t('news.business') },
+    { id: 'technology', name: t('news.technology') },
+    { id: 'markets', name: t('news.markets') },
   ];
 
   const loadNews = async (category = activeCategory) => {
@@ -74,9 +76,9 @@ const NewsScreen = () => {
     return (
       <View style={styles.centered}>
         <MaterialIcons name="error-outline" size={48} color="#FF3B30" />
-        <Text style={styles.errorText}>Failed to load news</Text>
+        <Text style={styles.errorText}>{t('error.failedToLoad')}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => loadNews()}>
-          <Text style={styles.retryButtonText}>Retry</Text>
+          <Text style={styles.retryButtonText}>{t('common.retry')}</Text>
         </TouchableOpacity>
       </View>
     );

@@ -6,28 +6,34 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Typography } from '../ui';
 import { useTheme } from '../../config/theme';
+import { useCurrency } from '../../contexts/CurrencyContext';
+import { useI18n } from '../../contexts/I18nContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface TabItem {
   name: string;
   route: string;
   icon: keyof typeof Ionicons.glyphMap;
-  label: string;
+  labelKey: string;
 }
 
 const tabs: TabItem[] = [
-  { name: 'home', route: '/dashboard', icon: 'home', label: 'Accueil' },
-  { name: 'trading', route: '/trading', icon: 'trending-up', label: 'Trading' },
-  { name: 'portfolio', route: '/portfolio', icon: 'pie-chart', label: 'Portfolio' },
-  { name: 'transactions', route: '/transactions', icon: 'swap-horizontal', label: 'Transactions' },
-  { name: 'leaderboard', route: '/leaderboard', icon: 'trophy', label: 'Classement' },
-  { name: 'notifications', route: '/notifications', icon: 'notifications', label: 'Alertes' },
-  { name: 'login', route: '/login', icon: 'person', label: 'Connexion' },
+  { name: 'home', route: '/dashboard', icon: 'home', labelKey: 'dashboard.title' },
+  { name: 'trading', route: '/trading', icon: 'trending-up', labelKey: 'trading.title' },
+  { name: 'portfolio', route: '/portfolio', icon: 'pie-chart', labelKey: 'portfolio.title' },
+  { name: 'transactions', route: '/transactions', icon: 'swap-horizontal', labelKey: 'transactions.title' },
+  { name: 'leaderboard', route: '/leaderboard', icon: 'trophy', labelKey: 'dashboard.leaderboard' },
+  { name: 'notifications', route: '/notifications', icon: 'notifications', labelKey: 'notifications.title' },
+  { name: 'login', route: '/login', icon: 'person', labelKey: 'auth.tab' },
 ];
 
 export const BottomTabBar: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
   const theme = useTheme();
+  const { currency, setCurrency } = useCurrency();
+  const { language, setLanguage, t } = useI18n();
+  const { isAuthenticated, logout } = useAuth();
 
   const isActive = (route: string) => {
     if (route === '/dashboard' && (pathname === '/' || pathname === '/dashboard')) {
@@ -36,12 +42,54 @@ export const BottomTabBar: React.FC = () => {
     return pathname === route;
   };
 
+  const handleTabPress = (tab: TabItem) => {
+    if (tab.name === 'login') {
+      if (isAuthenticated) {
+        // If already authenticated, logout
+        logout();
+        router.push('/login');
+      } else {
+        // If not authenticated, go to login
+        router.push('/login');
+      }
+    } else {
+      router.push(tab.route as any);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <LinearGradient
         colors={['rgba(255, 255, 255, 0.95)', 'rgba(255, 255, 255, 0.9)']}
         style={[styles.tabBar, theme.shadows.lg]}
       >
+        {/* Language & Currency toggles */}
+        <TouchableOpacity
+          style={[styles.tabItem, { maxWidth: 72 }]}
+          onPress={() => setLanguage(language === 'fr' ? 'mg' : 'fr')}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.iconContainer, { backgroundColor: 'transparent' }] }>
+            <Ionicons name="language" size={20} color={theme.colors.textSecondary} />
+          </View>
+          <Typography variant="caption" color="textSecondary" style={styles.label}>
+            {language.toUpperCase()}
+          </Typography>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabItem, { maxWidth: 72 }]}
+          onPress={() => setCurrency(currency === 'MGA' ? 'USD' : 'MGA')}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.iconContainer, { backgroundColor: 'transparent' }] }>
+            <Ionicons name="cash" size={20} color={theme.colors.textSecondary} />
+          </View>
+          <Typography variant="caption" color="textSecondary" style={styles.label}>
+            {currency}
+          </Typography>
+        </TouchableOpacity>
+
         {tabs.map((tab) => {
           const active = isActive(tab.route);
           
@@ -49,13 +97,15 @@ export const BottomTabBar: React.FC = () => {
             <TouchableOpacity
               key={tab.name}
               style={styles.tabItem}
-              onPress={() => router.push(tab.route as any)}
+              onPress={() => handleTabPress(tab)}
               activeOpacity={0.7}
             >
-              <View style={[
-                styles.iconContainer,
-                active && { backgroundColor: theme.colors.primary }
-              ]}>
+              <View
+                style={[
+                  styles.iconContainer,
+                  active && { backgroundColor: theme.colors.primary }
+                ]}
+              >
                 <Ionicons
                   name={tab.icon}
                   size={active ? 24 : 20}
@@ -69,7 +119,10 @@ export const BottomTabBar: React.FC = () => {
                 weight={active ? '600' : '400'}
                 style={styles.label}
               >
-                {tab.label}
+                {tab.name === 'login' 
+                  ? (isAuthenticated ? t('settings.logout') : t('login.title'))
+                  : t(tab.labelKey)
+                }
               </Typography>
             </TouchableOpacity>
           );

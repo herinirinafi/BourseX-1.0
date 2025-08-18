@@ -254,8 +254,8 @@ def test_trading_logic():
         buy_cost = stock_price * quantity
         if initial_balance >= buy_cost:
             new_balance = initial_balance - buy_cost
-            print(f"✅ Simulation achat: ${buy_cost:.2f}")
-            print(f"✅ Nouveau solde: ${new_balance:.2f}")
+            print(f"✅ Simulation achat: {buy_cost:.2f} MGA")
+            print(f"✅ Nouveau solde: {new_balance:.2f} MGA")
             
             # Test de vente avec profit
             sell_price = stock_price * 1.05  # 5% de profit
@@ -263,8 +263,8 @@ def test_trading_logic():
             final_balance = new_balance + sell_revenue
             profit = final_balance - initial_balance
             
-            print(f"✅ Simulation vente: ${sell_revenue:.2f}")
-            print(f"✅ Profit réalisé: ${profit:.2f}")
+            print(f"✅ Simulation vente: {sell_revenue:.2f} MGA")
+            print(f"✅ Profit réalisé: {profit:.2f} MGA")
             
             return True
         else:

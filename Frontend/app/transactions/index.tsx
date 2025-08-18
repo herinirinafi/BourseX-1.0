@@ -1,9 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Typography, GlassCard } from '../../src/components/ui';
 import { BottomTabBar } from '../../src/components/navigation/BottomTabBar';
 import { fetchTransactions } from '../../src/services/api';
+import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+import { showToast } from '../../src/services/toast';
+import { useTrading } from '../../src/contexts/TradingContext';
+import { formatCurrency } from '../../src/config/currency';
 
 type Tx = {
   id: number | string;
@@ -22,31 +27,88 @@ type Tx = {
 export default function TransactionsScreen() {
   const [data, setData] = useState<Tx[]>([]);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const { transactions: localTx } = useTrading();
+  const fetchAndMap = useCallback(async (isMountedRef?: { current: boolean }) => {
+    setLoading(true);
+    try {
+      const res = await fetchTransactions() as unknown as any[];
+      const serverTx: Tx[] = (res || []).map((t: any) => ({
+        id: t.id,
+        stock: t.stock,
+        stock_id: t?.stock?.id ?? t?.stock_id,
+        symbol: t?.stock?.symbol || t?.symbol,
+        type: (t?.transaction_type || t?.type),
+        trade_type: (t?.transaction_type || t?.type),
+        quantity: Number(t?.quantity ?? 0),
+        price: Number(t?.price ?? t?.executed_price ?? 0),
+        executed_price: Number(t?.executed_price ?? t?.price ?? 0),
+        timestamp: t?.timestamp || t?.created_at,
+        created_at: t?.created_at || t?.timestamp,
+      }));
+      // Fallback to local transactions if server list is empty
+      if (!isMountedRef || isMountedRef.current) {
+        if (serverTx.length > 0) {
+          setData(serverTx);
+        } else {
+          const localMapped: Tx[] = (localTx || []).map((lt: any) => ({
+            id: lt.id,
+            symbol: String(lt.assetId || 'ASSET'),
+            type: (lt.type || '').toUpperCase(),
+            trade_type: (lt.type || '').toUpperCase(),
+            quantity: Number(lt.quantity || 0),
+            price: Number(lt.price || 0),
+            timestamp: (lt.timestamp instanceof Date) ? lt.timestamp.toISOString() : String(lt.timestamp || ''),
+          }));
+          setData(localMapped);
+        }
+      }
+    } catch (e: any) {
+      if (e?.status === 401) {
+        showToast.info('Connexion requise', 'Veuillez vous connecter pour voir vos transactions');
+        router.replace('/login' as any);
+      }
+      // On error, show local-only transactions if available
+      if (!isMountedRef || isMountedRef.current) {
+        const localMapped: Tx[] = (localTx || []).map((lt: any) => ({
+          id: lt.id,
+          symbol: String(lt.assetId || 'ASSET'),
+          type: (lt.type || '').toUpperCase(),
+          trade_type: (lt.type || '').toUpperCase(),
+          quantity: Number(lt.quantity || 0),
+          price: Number(lt.price || 0),
+          timestamp: (lt.timestamp instanceof Date) ? lt.timestamp.toISOString() : String(lt.timestamp || ''),
+        }));
+        setData(localMapped);
+      }
+    } finally {
+      if (!isMountedRef || isMountedRef.current) setLoading(false);
+    }
+  }, [router, localTx]);
 
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
-      setLoading(true);
-      try {
-  const res = await fetchTransactions() as unknown as Tx[];
-        if (cancelled) return;
-        setData(res || []);
-      } catch {
-        // unauthenticated or error -> keep empty
-        if (!cancelled) setData([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      await fetchAndMap({ current: !cancelled });
     };
     run();
     return () => { cancelled = true; };
-  }, []);
+  }, [fetchAndMap, router]);
+
+  // Rafraîchir quand on revient sur l'onglet Transactions
+  useFocusEffect(
+  React.useCallback(() => {
+      const mounted = { current: true };
+      fetchAndMap(mounted);
+      return () => { mounted.current = false; };
+  }, [fetchAndMap])
+  );
 
   const renderItem = ({ item }: { item: Tx }) => {
     const kind = (item.type || item.trade_type || '').toUpperCase();
     const sym = item.symbol || item.stock?.symbol || 'ASSET';
     const name = item.stock?.name || sym;
-    const price = item.price ?? item.executed_price ?? 0;
+  const price = item.price ?? item.executed_price ?? 0;
     const dt = item.timestamp || item.created_at || '';
     return (
       <GlassCard style={styles.row} padding="md">
@@ -62,7 +124,7 @@ export default function TransactionsScreen() {
         </View>
         <View style={styles.rowRight}>
           <Typography variant="body1" weight="700">{item.quantity}x</Typography>
-          <Typography variant="caption" color="textSecondary">@ {price?.toFixed ? price.toFixed(2) : price}</Typography>
+          <Typography variant="caption" color="textSecondary">@ {formatCurrency(price)}</Typography>
         </View>
       </GlassCard>
     );

@@ -31,6 +31,19 @@ from .serializers import (
     AchievementSerializer, UserAchievementSerializer, DailyStreakSerializer,
     NotificationSerializer, GamificationSummarySerializer, LeaderboardSummarySerializer
 )
+@api_view(['GET'])
+def me(request):
+    """Return current user's profile, portfolio and transactions."""
+    if not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    portfolio = Portfolio.objects.filter(user=request.user)
+    txs = Transaction.objects.filter(user=request.user).order_by('-timestamp')[:50]
+    return Response({
+        'profile': UserProfileSerializer(profile).data,
+        'portfolio': PortfolioSerializer(portfolio, many=True).data,
+        'transactions': TransactionSerializer(txs, many=True).data,
+    })
 
 class UserProfileViewSet(viewsets.ModelViewSet):
     serializer_class = UserProfileSerializer
@@ -93,7 +106,13 @@ def execute_trade(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     data = serializer.validated_data
-    stock = get_object_or_404(Stock, id=data['stock_id'])
+    stock = None
+    if 'stock_id' in data and data['stock_id'] is not None:
+        stock = get_object_or_404(Stock, id=data['stock_id'])
+    elif 'symbol' in data and data['symbol']:
+        stock = get_object_or_404(Stock, symbol__iexact=data['symbol'])
+    else:
+        return Response({'error': 'Invalid stock reference'}, status=status.HTTP_400_BAD_REQUEST)
     quantity = data['quantity']
     trade_type = data['trade_type']
     
@@ -231,7 +250,10 @@ def dashboard_data(request):
     
     user_profile, created = UserProfile.objects.get_or_create(user=request.user)
     portfolio_items = Portfolio.objects.filter(user=request.user)
-    total_portfolio_value = sum(item.quantity * item.stock.current_price for item in portfolio_items)
+    try:
+        total_portfolio_value = float(sum(float(item.quantity) * float(item.stock.current_price) for item in portfolio_items))
+    except Exception:
+        total_portfolio_value = 0.0
     
     recent_transactions = Transaction.objects.filter(user=request.user).order_by('-timestamp')[:5]
     user_missions = UserMission.objects.filter(user=request.user, is_completed=False)[:3]
@@ -513,29 +535,39 @@ def gamification_summary(request):
     week_start = today - timedelta(days=today.weekday())
     
     leaderboard_ranks = {}
-    for lb_type in ['XP', 'PROFIT', 'TRADES', 'PORTFOLIO_VALUE']:
-        user_entry = Leaderboard.objects.filter(
-            user=request.user,
-            leaderboard_type=lb_type,
-            period_start__date=week_start
-        ).first()
-        leaderboard_ranks[lb_type.lower()] = user_entry.rank if user_entry else None
+    for lb_type in ['XP', 'PROFIT', 'TRADES']:
+        try:
+            user_entry = Leaderboard.objects.filter(
+                user=request.user,
+                leaderboard_type=lb_type,
+                period_start__date=week_start
+            ).first()
+            leaderboard_ranks[lb_type.lower()] = user_entry.rank if user_entry else None
+        except Exception:
+            leaderboard_ranks[lb_type.lower()] = None
     
     # Statistiques de la semaine
-    week_transactions = Transaction.objects.filter(
-        user=request.user,
-        timestamp__date__gte=week_start
-    )
-    
-    weekly_stats = {
-        'trades_count': week_transactions.count(),
-        'weekly_profit': week_transactions.aggregate(
-            total=Sum('total_amount')
-        )['total'] or 0,
-        'xp_gained': user_achievements.filter(
-            earned_at__date__gte=week_start
-        ).aggregate(total=Sum('achievement__reward_xp'))['total'] or 0
-    }
+    try:
+        week_transactions = Transaction.objects.filter(
+            user=request.user,
+            timestamp__date__gte=week_start
+        )
+        
+        weekly_stats = {
+            'trades_count': week_transactions.count(),
+            'weekly_profit': week_transactions.aggregate(
+                total=Sum('total_amount')
+            )['total'] or 0,
+            'xp_gained': user_achievements.filter(
+                earned_at__date__gte=week_start
+            ).aggregate(total=Sum('achievement__reward_xp'))['total'] or 0
+        }
+    except Exception:
+        weekly_stats = {
+            'trades_count': 0,
+            'weekly_profit': 0,
+            'xp_gained': 0
+        }
     
     return Response({
         'user_profile': UserProfileSerializer(user_profile).data,
@@ -555,13 +587,14 @@ def update_gamification(request):
         return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
     
     try:
-        from .gamification_engine import GamificationEngine
+        # Utiliser le moteur de gamification importé au début du fichier
         engine = GamificationEngine()
-        engine.check_all_rules(request.user)
+        result = engine.process_user_gamification(request.user)
         
         return Response({
             'message': 'Gamification mise à jour avec succès',
-            'timestamp': timezone.now()
+            'timestamp': timezone.now().isoformat(),
+            'result': result,
         })
     except Exception as e:
         return Response({

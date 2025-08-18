@@ -10,16 +10,17 @@ class UserProfile(models.Model):
     total_profit_loss = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     total_trades = models.IntegerField(default=0)
     successful_trades = models.IntegerField(default=0)
-    win_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)  # Percentage
-    favorite_crypto = models.CharField(max_length=10, blank=True, null=True)
+    # win_rate persisted field removed; computed via serializer now
     trading_score = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    risk_tolerance = models.CharField(max_length=10, choices=[
-        ('LOW', 'Conservative'),
-        ('MEDIUM', 'Moderate'),
-        ('HIGH', 'Aggressive')
+    # Keep in sync with migration 0003 (max_length=6)
+    risk_tolerance = models.CharField(max_length=6, choices=[
+        ('LOW', 'Low'),
+        ('MEDIUM', 'Medium'),
+        ('HIGH', 'High')
     ], default='MEDIUM')
     created_at = models.DateTimeField(auto_now_add=True)
-    last_login = models.DateTimeField(auto_now=True)
+    # last_login omitted from migrations; avoid DB drift by not persisting this for now
+    # last_login = models.DateTimeField(auto_now=True)
     
     def __str__(self):
         return f"{self.user.username}'s Profile"
@@ -45,12 +46,7 @@ class UserProfile(models.Model):
         """Alias pour total_profit_loss pour compatibilité"""
         return self.total_profit_loss
     
-    @property
-    def win_rate(self):
-        """Calcule le taux de réussite des trades"""
-        if self.total_trades == 0:
-            return 0.0
-        return (self.successful_trades / self.total_trades) * 100
+    # Remarque: le taux de réussite est exposé via le Serializer (get_win_rate)
     
     def calculate_trading_score(self):
         """Calcule le score de trading basé sur plusieurs métriques"""
@@ -63,8 +59,11 @@ class UserProfile(models.Model):
         if self.total_profit_loss > 0:
             base_score += float(self.total_profit_loss) * 0.01
         
-        # Points pour win rate
-        base_score += float(self.win_rate) * 10
+        # Points pour win rate (calculé dynamiquement)
+        win_rate = 0.0
+        if self.total_trades > 0:
+            win_rate = (self.successful_trades / self.total_trades)
+        base_score += float(win_rate) * 10
         
         # Bonus pour nombre de trades
         base_score += self.total_trades * 2
@@ -213,22 +212,23 @@ class Leaderboard(models.Model):
         ('XP', 'Experience Points'),
         ('PROFIT', 'Total Profit'),
         ('TRADES', 'Trade Count'),
-        ('PORTFOLIO_VALUE', 'Portfolio Value'),
-        ('BADGES', 'Badge Count'),
-        ('WEEKLY', 'Weekly Performance'),
-        ('MONTHLY', 'Monthly Performance'),
+        # Keep minimal set aligned with migration to avoid schema churn
+        ('WIN_RATE', 'Win Rate'),
+        ('VOLUME', 'Trading Volume'),
     ]
     
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    leaderboard_type = models.CharField(max_length=15, choices=LEADERBOARD_TYPES)
-    score = models.DecimalField(max_digits=15, decimal_places=2)
+    # Align with migration 0003 (max_length=8, score max_digits=12)
+    leaderboard_type = models.CharField(max_length=8, choices=LEADERBOARD_TYPES)
+    score = models.DecimalField(max_digits=12, decimal_places=2)
     rank = models.IntegerField()
     period_start = models.DateTimeField()
     period_end = models.DateTimeField()
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        unique_together = ('user', 'leaderboard_type', 'period_start', 'period_end')
+        # Align unique constraint with migration 0003
+        unique_together = ('user', 'leaderboard_type', 'period_start')
         ordering = ['rank']
     
     def __str__(self):
@@ -247,7 +247,8 @@ class Achievement(models.Model):
     
     name = models.CharField(max_length=100)
     description = models.TextField()
-    category = models.CharField(max_length=10, choices=ACHIEVEMENT_CATEGORIES)
+    # Align with migration 0003 (max_length=9)
+    category = models.CharField(max_length=9, choices=ACHIEVEMENT_CATEGORIES)
     icon_url = models.URLField(blank=True)
     requirement = models.JSONField(default=dict)
     reward_xp = models.IntegerField()
@@ -264,7 +265,7 @@ class UserAchievement(models.Model):
     """Achievements obtenus par les utilisateurs"""
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     achievement = models.ForeignKey(Achievement, on_delete=models.CASCADE)
-    earned_at = models.DateTimeField(auto_now_add=True)
+    earned_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     progress = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
     
     class Meta:
@@ -278,7 +279,8 @@ class DailyStreak(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     current_streak = models.IntegerField(default=0)
     longest_streak = models.IntegerField(default=0)
-    last_activity_date = models.DateField(auto_now=True)
+    # Align with migration 0003 (auto_now_add=True)
+    last_activity_date = models.DateField(auto_now_add=True)
     
     def __str__(self):
         return f"{self.user.username} - {self.current_streak} days streak"
@@ -286,20 +288,22 @@ class DailyStreak(models.Model):
 class Notification(models.Model):
     """Système de notifications gamifiées"""
     NOTIFICATION_TYPES = [
-        ('ACHIEVEMENT', 'Achievement Unlocked'),
         ('BADGE', 'Badge Earned'),
+        ('ACHIEVEMENT', 'Achievement Unlocked'),
         ('LEVEL_UP', 'Level Up'),
         ('MISSION', 'Mission Complete'),
-        ('LEADERBOARD', 'Leaderboard Update'),
-        ('STREAK', 'Streak Milestone'),
         ('TRADE', 'Trade Alert'),
+        ('SOCIAL', 'Social'),
+        ('SYSTEM', 'System'),
     ]
     
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    notification_type = models.CharField(max_length=12, choices=NOTIFICATION_TYPES)
-    title = models.CharField(max_length=100)
+    # Align with migration 0003 (max_length=11 for type, title 200)
+    notification_type = models.CharField(max_length=11, choices=NOTIFICATION_TYPES)
+    title = models.CharField(max_length=200)
     message = models.TextField()
     is_read = models.BooleanField(default=False)
+    data = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -307,6 +311,3 @@ class Notification(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.title}"
-    
-    def __str__(self):
-        return f"{self.stock.symbol} - {self.price} at {self.timestamp}"

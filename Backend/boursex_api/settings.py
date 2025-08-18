@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
 
 # Load environment variables
 load_dotenv()
@@ -32,9 +33,10 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # Put CORS as high as possible, before CommonMiddleware (per docs)
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -104,8 +106,28 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS settings
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '*').split(',')
-CORS_ALLOW_CREDENTIALS = True
+# Allow all origins by default in dev; restrict via env in prod as needed
+CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'True' if DEBUG else 'False').lower() == 'true'
+CORS_ALLOW_CREDENTIALS = os.getenv('CORS_ALLOW_CREDENTIALS', 'False').lower() == 'true'
+
+# If not allowing all origins, set explicit allowed origins (comma-separated)
+if not CORS_ALLOW_ALL_ORIGINS:
+    CORS_ALLOWED_ORIGINS = [
+        o.strip() for o in os.getenv(
+            'CORS_ALLOWED_ORIGINS',
+            'http://localhost:8081,http://127.0.0.1:8081,http://localhost:19006,http://127.0.0.1:19006'
+        ).split(',') if o.strip()
+    ]
+else:
+    CORS_ALLOWED_ORIGINS = []
+
+# Ensure Authorization and common headers are allowed for preflight
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'authorization',
+    'cache-control',
+    'pragma',
+    'expires',
+]
 
 # REST Framework settings
 REST_FRAMEWORK = {

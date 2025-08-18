@@ -1,6 +1,6 @@
 // src/components/ui/GlassCard.tsx
-import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import React, { Children } from 'react';
+import { View, StyleSheet, ViewStyle, Text } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '../../config/theme';
 
@@ -20,6 +20,12 @@ export const GlassCard: React.FC<GlassCardProps> = ({
   padding = 'md',
 }) => {
   const theme = useTheme();
+  const normalizedChildren = Children.map(children, (child) => {
+    if (typeof child === 'string' || typeof child === 'number') {
+      return <Text>{child}</Text>;
+    }
+    return child as any;
+  });
   
   const paddingValue = theme.spacing[padding];
 
@@ -37,9 +43,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
           theme.shadows.md,
         ]}
       >
-        <View style={styles.overlay}>
-          {children}
-        </View>
+  <View style={styles.overlay}>{normalizedChildren}</View>
       </BlurView>
     </View>
   );

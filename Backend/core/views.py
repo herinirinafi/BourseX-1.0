@@ -45,6 +45,24 @@ def me(request):
         'transactions': TransactionSerializer(txs, many=True).data,
     })
 
+@api_view(['GET'])
+def current_user(request):
+    """Return current user's information for authentication."""
+    if not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    user = request.user
+    return Response({
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'is_staff': user.is_staff,
+        'is_active': user.is_active,
+        'date_joined': user.date_joined.isoformat(),
+    })
+
 class UserProfileViewSet(viewsets.ModelViewSet):
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]

@@ -69,7 +69,7 @@ export default function DashboardScreen() {
 
   return (
     <ResponsiveScreenWrapper
-      backgroundColor={['#0F172A', '#1E293B', '#374151']}
+      backgroundColor={['#FAFBFC', '#F8FAFC', '#F1F5F9']}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       showBottomTabs={true}
     >

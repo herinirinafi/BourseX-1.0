@@ -273,6 +273,30 @@ const translations: Record<Language, Translations> = {
       backed_up: 'Sauvegardé avec succès',
       restored: 'Restauré avec succès',
     },
+    navigation: {
+      quickAccess: 'Accès Rapide',
+      menu: 'Menu',
+      more: 'Plus',
+      trading: 'Trading',
+      account: 'Compte',
+    },
+    tutorial: {
+      title: 'Tutoriel',
+      welcome: 'Bienvenue',
+      gettingStarted: 'Commencer',
+      basicTrading: 'Trading de Base',
+      advanced: 'Avancé',
+      tips: 'Conseils',
+    },
+    missions: {
+      title: 'Missions',
+      daily: 'Quotidiennes',
+      weekly: 'Hebdomadaires',
+      monthly: 'Mensuelles',
+      completed: 'Terminées',
+      inProgress: 'En Cours',
+      rewards: 'Récompenses',
+    },
   },
   mg: {
     common: {
@@ -353,6 +377,30 @@ const translations: Record<Language, Translations> = {
     },
     success: {
       cacheCleared: 'Voafafa ny cache',
+    },
+    navigation: {
+      quickAccess: 'Fidirana Haingana',
+      menu: 'Menu',
+      more: 'Bebe kokoa',
+      trading: 'Varotra',
+      account: 'Kaonty',
+    },
+    tutorial: {
+      title: 'Fampianarana',
+      welcome: 'Tonga soa',
+      gettingStarted: 'Hanomboka',
+      basicTrading: 'Varotra Fototra',
+      advanced: 'Avo lenta',
+      tips: 'Torohevitra',
+    },
+    missions: {
+      title: 'Asa',
+      daily: 'Isan\'andro',
+      weekly: 'Isan-kerinandro',
+      monthly: 'Isan-kvolana',
+      completed: 'Vita',
+      inProgress: 'Mitohy',
+      rewards: 'Valisoa',
     },
   },
 };

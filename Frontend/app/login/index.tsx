@@ -7,8 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Typography, GlassCard } from '../../src/components/ui';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { authService } from '../../src/services/authService';
+import { getAuthToken } from '../../src/services/authToken';
 import { showToast } from '../../src/services/toast';
-import { ResponsiveScreenWrapper } from '../../src/components/responsive/ResponsiveScreenWrapper';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -51,10 +51,25 @@ export default function LoginScreen() {
     
     try {
       const res = await authService.login(username.trim(), password);
+      console.log('🔐 Login response:', res);
       loginWithToken(res.access);
       setRefresh(res.refresh);
       showToast.success('Connecté', `Bienvenue ${username}`);
-      router.replace('/dashboard');
+      
+      // Check if user is admin and redirect accordingly
+      const isAdminUser = authService.isAdminUser(res.access);
+      console.log('👑 Is admin user?', isAdminUser);
+      console.log('🚀 Redirecting to:', isAdminUser ? '/admin' : '/dashboard');
+      
+      // Use setTimeout to avoid setState during render
+      setTimeout(() => {
+        if (isAdminUser) {
+          router.replace('/admin' as any);
+        } else {
+          router.replace('/dashboard');
+        }
+      }, 100);
+      
     } catch (e: any) {
       const msg = e?.message || 'Échec de connexion';
       setError(msg);
@@ -65,7 +80,13 @@ export default function LoginScreen() {
   };
 
   if (isAuthenticated) {
-    router.replace('/dashboard');
+    // Check if user is admin from current token and redirect appropriately
+    const token = getAuthToken();
+    if (token && authService.isAdminUser(token)) {
+      setTimeout(() => router.replace('/admin' as any), 0);
+    } else {
+      setTimeout(() => router.replace('/dashboard'), 0);
+    }
     return null;
   }
 
@@ -79,7 +100,7 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <LinearGradient colors={['#0F172A', '#1E293B', '#374151']} style={styles.container}>
+        <LinearGradient colors={['#FAFBFC', '#F8FAFC', '#F1F5F9']} style={styles.container}>
           {/* Professional Background Effects */}
           <View style={styles.backgroundEffects}>
             {/* Golden glow effects */}

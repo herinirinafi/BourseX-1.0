@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Typography, Card, Button, GlassCard, PriceChart } from '../../src/components/ui';
-import { BottomTabBar } from '../../src/components/navigation/BottomTabBar';
 import { useTheme } from '../../src/config/theme';
 import { useTrading } from '../../src/contexts/TradingContext';
 import { useGamification } from '../../src/contexts/GamificationContext';
@@ -10,6 +8,7 @@ import { Asset } from '../../src/types';
 import { showToast } from '../../src/services/toast';
 import { formatCurrency } from '../../src/config/currency';
 import { useCurrency } from '../../src/contexts/CurrencyContext';
+import { ResponsiveScreenWrapper } from '../../src/components/responsive/ResponsiveScreenWrapper';
 
 const TradingScreen = () => {
   const theme = useTheme();
@@ -76,10 +75,7 @@ const TradingScreen = () => {
     : 0;
 
   return (
-    <LinearGradient
-      colors={['#F8FAFC', '#F1F5F9', '#E2E8F0']}
-      style={styles.container}
-    >
+    <ResponsiveScreenWrapper showBottomTabs={true}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
@@ -342,10 +338,7 @@ const TradingScreen = () => {
           />
         </View>
       </ScrollView>
-      
-      {/* Bottom Navigation */}
-      <BottomTabBar />
-    </LinearGradient>
+    </ResponsiveScreenWrapper>
   );
 };
 

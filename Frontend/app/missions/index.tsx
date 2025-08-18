@@ -4,7 +4,7 @@ import { useTrading } from '../../src/contexts/TradingContext';
 import { Mission } from '../../src/types';
 import { useGamification } from '../../src/contexts/GamificationContext';
 import { fetchMissions } from '../../src/services/api';
-import { BottomTabBar } from '../../src/components/navigation/BottomTabBar';
+import { ResponsiveScreenWrapper } from '../../src/components/responsive/ResponsiveScreenWrapper';
 
 export default function MissionsScreen() {
   const { missions, completeMission, user } = useTrading();
@@ -89,7 +89,7 @@ export default function MissionsScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <ResponsiveScreenWrapper showBottomTabs={true}>
       <View style={styles.header}>
         <View style={styles.levelContainer}>
           <Text style={styles.levelLabel}>Niveau {user.level}</Text>
@@ -148,9 +148,7 @@ export default function MissionsScreen() {
         }
       />
       
-      {/* Bottom Navigation */}
-      <BottomTabBar />
-    </View>
+    </ResponsiveScreenWrapper>
   );
 }
 

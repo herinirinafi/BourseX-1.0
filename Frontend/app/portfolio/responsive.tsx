@@ -1,13 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, ActivityIndicator, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, ActivityIndicator, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { showToast } from '../../src/services/toast';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Typography, GlassCard } from '../../src/components/ui';
-import { BottomTabBar } from '../../src/components/navigation/BottomTabBar';
+import { SmartNavigationBar } from '../../src/components/navigation';
 import { 
   ResponsiveContainer, 
-  ResponsiveScrollView, 
   ResponsiveGrid, 
   ResponsiveCard, 
   ResponsiveRow 
@@ -115,9 +114,9 @@ export default function ResponsivePortfolioScreen() {
     return assets.map(asset => ({
       symbol: asset.symbol,
       name: asset.name,
-      amount: asset.holdings,
-      value: asset.holdings * asset.price,
-      change: asset.change,
+      amount: asset.amount || 0, // Use asset.amount instead of asset.quantity
+      value: (asset.amount || 0) * asset.price,
+      change: asset.change || 0, // Provide default value of 0 if change doesn't exist
     }));
   }, [serverHoldings, assets]);
 
@@ -312,9 +311,14 @@ export default function ResponsivePortfolioScreen() {
   return (
     <LinearGradient colors={['#0F172A', '#1E293B', '#374151']} style={{ flex: 1 }}>
       <ResponsiveContainer style={{ flex: 1 }}>
-        <ResponsiveScrollView
+        <ScrollView
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           showsVerticalScrollIndicator={false}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ 
+            paddingHorizontal: isDesktop ? spacing.xl : spacing.lg,
+            paddingBottom: spacing.xl 
+          }}
         >
           {/* Header */}
           <View style={{ paddingTop: spacing.xl, paddingBottom: spacing.lg }}>
@@ -353,10 +357,10 @@ export default function ResponsivePortfolioScreen() {
 
           {/* Bottom spacing for tab bar */}
           <View style={{ height: spacing.xl }} />
-        </ResponsiveScrollView>
+        </ScrollView>
       </ResponsiveContainer>
       
-      {!isDesktop && <BottomTabBar />}
+      <SmartNavigationBar />
     </LinearGradient>
   );
 }

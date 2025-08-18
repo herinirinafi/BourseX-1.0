@@ -1,12 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, FlatList, TextInput } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Typography, Card, GlassCard } from '../../src/components/ui';
-import { BottomTabBar } from '../../src/components/navigation/BottomTabBar';
+import { Typography, GlassCard } from '../../src/components/ui';
 import { useTheme } from '../../src/config/theme';
 import { useTrading } from '../../src/contexts/TradingContext';
 import { Asset } from '../../src/types';
+import { ResponsiveScreenWrapper } from '../../src/components/responsive/ResponsiveScreenWrapper';
 
 export default function SearchScreen() {
   const theme = useTheme();
@@ -61,7 +60,7 @@ export default function SearchScreen() {
             </Typography>
           </View>
           <View style={styles.assetDetails}>
-            <Typography variant="h5" color="text" weight="600">
+            <Typography variant="h3" color="text" weight="600">
               {item.symbol}
             </Typography>
             <Typography variant="caption" color="textSecondary">
@@ -70,7 +69,7 @@ export default function SearchScreen() {
           </View>
         </View>
         <View style={styles.assetPricing}>
-          <Typography variant="h5" color="text" weight="600">
+          <Typography variant="h3" color="text" weight="600">
             ${item.currentPrice.toFixed(2)}
           </Typography>
           <Typography 
@@ -86,10 +85,7 @@ export default function SearchScreen() {
   );
 
   return (
-    <LinearGradient
-      colors={['#F8FAFC', '#F1F5F9', '#E2E8F0']}
-      style={styles.container}
-    >
+    <ResponsiveScreenWrapper showBottomTabs={true}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
@@ -160,10 +156,7 @@ export default function SearchScreen() {
           />
         </View>
       </ScrollView>
-
-      {/* Bottom Navigation */}
-      <BottomTabBar />
-    </LinearGradient>
+    </ResponsiveScreenWrapper>
   );
 }
 

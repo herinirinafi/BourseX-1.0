@@ -43,6 +43,7 @@ export const ENDPOINTS = {
   LOGIN: '/auth/login/',
   REFRESH_TOKEN: '/auth/refresh/',
   LOGOUT: '/auth/logout/',
+  USER: '/current-user/',
 
   // Gamification
   GAMIFICATION_SUMMARY: '/gamification/',

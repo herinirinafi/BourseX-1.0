@@ -78,8 +78,8 @@ export default function ResponsiveLoginScreen() {
     
     try {
       const result = await authService.login(username, password);
-      if (result.access_token) {
-        await loginWithToken(result.access_token);
+      if (result.accessToken) {
+        await loginWithToken(result.accessToken);
         setRefresh && setRefresh(Date.now().toString());
         router.replace('/' as any);
         showToast.success('Connexion réussie', 'Bienvenue sur BourseX!');
@@ -111,7 +111,7 @@ export default function ResponsiveLoginScreen() {
       shadow={false}
     >
       <LinearGradient
-        colors={['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']}
+        colors={['rgba(255, 255, 255, 0.95)', 'rgba(255, 255, 255, 0.9)']}
         style={[
           styles.formContainer,
           {
@@ -132,7 +132,7 @@ export default function ResponsiveLoginScreen() {
           </ResponsiveHeading>
           <ResponsiveText 
             size="lg" 
-            color="rgba(255, 255, 255, 0.8)" 
+            color="#6B7280" 
             textAlign="center"
             style={{ marginBottom: spacing.xl }}
           >
@@ -161,7 +161,7 @@ export default function ResponsiveLoginScreen() {
           <ResponsiveText 
             size="base" 
             weight="medium" 
-            color="#FFFFFF"
+            color="#1A1D1F"
             style={{ marginBottom: spacing.sm }}
           >
             Nom d&apos;utilisateur
@@ -173,7 +173,7 @@ export default function ResponsiveLoginScreen() {
             <Ionicons 
               name="person-outline" 
               size={isDesktop ? 24 : 20} 
-              color="rgba(255, 255, 255, 0.6)" 
+              color="#6B7280" 
               style={{ marginRight: spacing.sm }}
             />
             <TextInput
@@ -182,7 +182,7 @@ export default function ResponsiveLoginScreen() {
                 flex: 1 
               }]}
               placeholder="Entrez votre nom d'utilisateur"
-              placeholderTextColor="rgba(255, 255, 255, 0.5)"
+              placeholderTextColor="#9CA3AF"
               value={username}
               onChangeText={setUsername}
               autoCapitalize="none"
@@ -196,7 +196,7 @@ export default function ResponsiveLoginScreen() {
           <ResponsiveText 
             size="base" 
             weight="medium" 
-            color="#FFFFFF"
+            color="#1A1D1F"
             style={{ marginBottom: spacing.sm }}
           >
             Mot de passe
@@ -208,7 +208,7 @@ export default function ResponsiveLoginScreen() {
             <Ionicons 
               name="lock-closed-outline" 
               size={isDesktop ? 24 : 20} 
-              color="rgba(255, 255, 255, 0.6)" 
+              color="#6B7280" 
               style={{ marginRight: spacing.sm }}
             />
             <TextInput
@@ -217,7 +217,7 @@ export default function ResponsiveLoginScreen() {
                 flex: 1 
               }]}
               placeholder="Entrez votre mot de passe"
-              placeholderTextColor="rgba(255, 255, 255, 0.5)"
+              placeholderTextColor="#9CA3AF"
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
@@ -231,7 +231,7 @@ export default function ResponsiveLoginScreen() {
               <Ionicons 
                 name={showPassword ? "eye-off-outline" : "eye-outline"} 
                 size={isDesktop ? 24 : 20} 
-                color="rgba(255, 255, 255, 0.6)" 
+                color="#6B7280" 
               />
             </TouchableOpacity>
           </View>
@@ -258,7 +258,7 @@ export default function ResponsiveLoginScreen() {
         <View style={{ marginTop: spacing.xl }}>
           <ResponsiveText 
             size="sm" 
-            color="rgba(255, 255, 255, 0.7)" 
+            color="#6B7280" 
             textAlign="center"
             style={{ marginBottom: spacing.md }}
           >
@@ -277,7 +277,7 @@ export default function ResponsiveLoginScreen() {
                 setPassword('testpass123');
               }}
             >
-              <ResponsiveText size="xs" color="rgba(255, 255, 255, 0.8)">
+              <ResponsiveText size="xs" color="#6B7280">
                 Basic User
               </ResponsiveText>
             </TouchableOpacity>
@@ -293,7 +293,7 @@ export default function ResponsiveLoginScreen() {
                 setPassword('vippass123');
               }}
             >
-              <ResponsiveText size="xs" color="rgba(255, 255, 255, 0.8)">
+              <ResponsiveText size="xs" color="#6B7280">
                 VIP Trader
               </ResponsiveText>
             </TouchableOpacity>
@@ -309,7 +309,7 @@ export default function ResponsiveLoginScreen() {
                 setPassword('propass123');
               }}
             >
-              <ResponsiveText size="xs" color="rgba(255, 255, 255, 0.8)">
+              <ResponsiveText size="xs" color="#6B7280">
                 Pro Investor
               </ResponsiveText>
             </TouchableOpacity>
@@ -321,7 +321,7 @@ export default function ResponsiveLoginScreen() {
 
   return (
     <LinearGradient
-      colors={['#0F172A', '#1E293B', '#374151']}
+      colors={['#FAFBFC', '#F8FAFC', '#F1F5F9']}
       style={styles.container}
     >
       <KeyboardAvoidingView
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: '#E5E7EB',
   },
   headerSection: {
     alignItems: 'center',
@@ -379,18 +379,18 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#F9FAFB',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: '#E5E7EB',
   },
   textInput: {
-    color: '#FFFFFF',
+    color: '#1A1D1F',
     fontWeight: '500',
   },
   demoButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#F9FAFB',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: '#E5E7EB',
     borderRadius: borderRadius.md,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,

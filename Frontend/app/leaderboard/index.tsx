@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Typography, GlassCard } from '../../src/components/ui';
-import { BottomTabBar } from '../../src/components/navigation/BottomTabBar';
 import { useTheme } from '../../src/config/theme';
 import { gamificationService, type LeaderboardEntry } from '../../src/services/gamificationService';
+import { ResponsiveScreenWrapper } from '../../src/components/responsive/ResponsiveScreenWrapper';
 
 const leaderboardData = [
   { id: '1', name: 'CryptoMaster', rank: 1, portfolioValue: 12543.21, weeklyChange: 12.5, avatar: '👑' },
@@ -144,10 +144,7 @@ export default function LeaderboardScreen() {
   };
 
   return (
-    <LinearGradient
-      colors={['#F8FAFC', '#F1F5F9', '#E2E8F0']}
-      style={styles.container}
-    >
+    <ResponsiveScreenWrapper showBottomTabs={true}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
@@ -214,10 +211,7 @@ export default function LeaderboardScreen() {
           </View>
         </GlassCard>
       </ScrollView>
-
-      {/* Bottom Navigation */}
-      <BottomTabBar />
-    </LinearGradient>
+    </ResponsiveScreenWrapper>
   );
 }
 

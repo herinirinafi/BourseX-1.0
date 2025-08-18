@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router';
 import { Typography, Card, Button, GlassCard, FloatingActionButton } from '../../src/components/ui';
 import { ARDashboard, ARPortfolioViewer } from '../../src/components/ar';
-import { BottomTabBar } from '../../src/components/navigation/BottomTabBar';
+import { SmartNavigationBar } from '../../src/components/navigation';
 import { useTheme } from '../../src/config/theme';
 import { useGamification } from '../../src/contexts/GamificationContext';
 import { useI18n } from '../../src/contexts/I18nContext';
@@ -243,7 +243,7 @@ export default function DashboardScreen() {
       />
       
       {/* Bottom Navigation */}
-      <BottomTabBar />
+      <SmartNavigationBar />
     </LinearGradient>
   );
 }

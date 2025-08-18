@@ -1,13 +1,14 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Link } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BottomTabBar } from '../../src/components/navigation/BottomTabBar';
+import { useAuth } from '../../src/contexts/AuthContext';
+import { ResponsiveScreenWrapper } from '../../src/components/responsive/ResponsiveScreenWrapper';
 
 type MenuItem = {
   id: string;
   title: string;
   icon: string;
   path: `/${string}`;
+  adminOnly?: boolean;
 };
 
 const menuItems: MenuItem[] = [
@@ -17,27 +18,48 @@ const menuItems: MenuItem[] = [
   { id: 'leaderboard', title: 'Classement', icon: '🏆', path: '/leaderboard' },
   { id: 'missions', title: 'Missions', icon: '🎯', path: '/missions' },
   { id: 'search', title: 'Recherche', icon: '🔍', path: '/search' },
+  { id: 'admin', title: 'Administration', icon: '🛠️', path: '/admin', adminOnly: true },
 ];
 
 export default function HomeScreen() {
+  const { isAuthenticated, user, isAdmin } = useAuth();
+
+  const filteredMenuItems = menuItems.filter(item => 
+    !item.adminOnly || (item.adminOnly && isAdmin)
+  );
   return (
-    <LinearGradient
-      colors={['#0f0c29', '#302b63', '#24243e']}
-      style={styles.container}
-    >
+    <ResponsiveScreenWrapper showBottomTabs={true}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
-          <Text style={styles.welcomeText}>Bienvenue sur</Text>
+          <Text style={styles.welcomeText}>
+            Bienvenue{user ? ` ${user.first_name || user.username}` : ''} sur
+          </Text>
           <Text style={styles.appTitle}>BourseX</Text>
           <Text style={styles.subtitle}>Gérez vos investissements en toute simplicité</Text>
+          {isAdmin && (
+            <View style={styles.adminBadge}>
+              <Text style={styles.adminBadgeText}>👑 Administrateur</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.gridContainer}>
-          {menuItems.map((item) => (
+          {filteredMenuItems.map((item) => (
             <Link href={item.path as any} key={item.id} asChild>
-              <TouchableOpacity style={styles.card}>
+              <TouchableOpacity style={[
+                styles.card,
+                item.adminOnly && styles.adminCard
+              ]}>
                 <Text style={styles.cardIcon}>{item.icon}</Text>
-                <Text style={styles.cardText}>{item.title}</Text>
+                <Text style={[
+                  styles.cardText,
+                  item.adminOnly && styles.adminCardText
+                ]}>{item.title}</Text>
+                {item.adminOnly && (
+                  <View style={styles.adminIndicator}>
+                    <Text style={styles.adminIndicatorText}>ADMIN</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </Link>
           ))}
@@ -48,9 +70,7 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
       
-      {/* Bottom Navigation */}
-      <BottomTabBar />
-    </LinearGradient>
+    </ResponsiveScreenWrapper>
   );
 }
 
@@ -83,6 +103,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
   },
+  adminBadge: {
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#FFD700',
+  },
+  adminBadgeText: {
+    color: '#FFD700',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -100,6 +134,12 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+    position: 'relative',
+  },
+  adminCard: {
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    borderColor: '#FFD700',
+    borderWidth: 2,
   },
   cardIcon: {
     fontSize: 32,
@@ -110,6 +150,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  adminCardText: {
+    color: '#FFD700',
+    fontWeight: '600',
+  },
+  adminIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#FFD700',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  adminIndicatorText: {
+    color: '#000',
+    fontSize: 10,
+    fontWeight: '700',
   },
   footer: {
     marginTop: 40,

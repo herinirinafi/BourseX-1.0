@@ -12,6 +12,50 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name']
 
+class UserDetailSerializer(serializers.ModelSerializer):
+    userprofile = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_active', 'is_staff', 'date_joined', 'userprofile']
+    
+    def get_userprofile(self, obj):
+        try:
+            profile = obj.userprofile
+            return {
+                'balance': float(profile.balance),
+                'level': profile.level,
+                'xp': profile.xp,
+                'total_trades': profile.total_trades,
+                'successful_trades': profile.successful_trades,
+                'trading_score': profile.trading_score
+            }
+        except:
+            return None
+
+class UserCreateUpdateSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=False)
+    
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'first_name', 'last_name', 'is_active', 'is_staff', 'password']
+    
+    def create(self, validated_data):
+        password = validated_data.pop('password', 'password123')
+        user = User.objects.create_user(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
+    
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        if password:
+            instance.set_password(password)
+        instance.save()
+        return instance
+
 class UserProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     badge_count = serializers.ReadOnlyField()

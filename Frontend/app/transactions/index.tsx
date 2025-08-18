@@ -1,14 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Typography, GlassCard } from '../../src/components/ui';
-import { BottomTabBar } from '../../src/components/navigation/BottomTabBar';
 import { fetchTransactions } from '../../src/services/api';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { showToast } from '../../src/services/toast';
 import { useTrading } from '../../src/contexts/TradingContext';
 import { formatCurrency } from '../../src/config/currency';
+import { ResponsiveScreenWrapper } from '../../src/components/responsive/ResponsiveScreenWrapper';
 
 type Tx = {
   id: number | string;
@@ -131,7 +130,7 @@ export default function TransactionsScreen() {
   };
 
   return (
-    <LinearGradient colors={['#F8FAFC', '#F1F5F9', '#E2E8F0']} style={styles.container}>
+    <ResponsiveScreenWrapper showBottomTabs={true}>
       <View style={styles.header}>
         <Typography variant="h2" weight="700">Transactions</Typography>
         <Typography variant="body2" color="textSecondary">Historique de vos opérations</Typography>
@@ -148,8 +147,7 @@ export default function TransactionsScreen() {
           </GlassCard>
         ) : null}
       />
-      <BottomTabBar />
-    </LinearGradient>
+    </ResponsiveScreenWrapper>
   );
 }
 

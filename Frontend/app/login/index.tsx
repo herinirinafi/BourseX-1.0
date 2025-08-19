@@ -7,7 +7,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Typography, GlassCard } from '../../src/components/ui';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { authService } from '../../src/services/authService';
-import { getAuthToken } from '../../src/services/authToken';
 import { showToast } from '../../src/services/toast';
 
 export default function LoginScreen() {
@@ -52,8 +51,11 @@ export default function LoginScreen() {
     try {
       const res = await authService.login(username.trim(), password);
       console.log('🔐 Login response:', res);
+      
+      // Set authentication tokens
       loginWithToken(res.access);
       setRefresh(res.refresh);
+      
       showToast.success('Connecté', `Bienvenue ${username}`);
       
       // Check if user is admin and redirect accordingly
@@ -61,14 +63,14 @@ export default function LoginScreen() {
       console.log('👑 Is admin user?', isAdminUser);
       console.log('🚀 Redirecting to:', isAdminUser ? '/admin' : '/dashboard');
       
-      // Use setTimeout to avoid setState during render
+      // Wait longer for authentication state to update properly
       setTimeout(() => {
         if (isAdminUser) {
           router.replace('/admin' as any);
         } else {
           router.replace('/dashboard');
         }
-      }, 100);
+      }, 500); // Increased timeout
       
     } catch (e: any) {
       const msg = e?.message || 'Échec de connexion';
@@ -80,13 +82,7 @@ export default function LoginScreen() {
   };
 
   if (isAuthenticated) {
-    // Check if user is admin from current token and redirect appropriately
-    const token = getAuthToken();
-    if (token && authService.isAdminUser(token)) {
-      setTimeout(() => router.replace('/admin' as any), 0);
-    } else {
-      setTimeout(() => router.replace('/dashboard'), 0);
-    }
+    // If already authenticated, don't render login form
     return null;
   }
 

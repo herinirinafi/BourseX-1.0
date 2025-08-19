@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, RefreshControl } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { Typography, Button, GlassCard, FloatingActionButton } from '../../src/components/ui';
 import { ARDashboard, ARPortfolioViewer } from '../../src/components/ar';
 import { ResponsiveScreenWrapper } from '../../src/components/responsive/ResponsiveScreenWrapper';
@@ -11,19 +11,20 @@ import { fetchDashboard, fetchMe } from '../../src/services/api';
 import { gamificationService } from '../../src/services/gamificationService';
 
 export default function DashboardScreen() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const { user } = useTrading();
   const { userProfile, refreshGamificationData } = useGamification();
   const [refreshing, setRefreshing] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [gamificationSummary, setGamificationSummary] = useState<any>(null);
+  const router = useRouter();
 
+  // Redirect to login if not authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      loadDashboardData();
-      loadGamificationData();
+    if (!loading && !isAuthenticated) {
+      router.replace('/login');
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loading, router]);
 
   const loadDashboardData = async () => {
     try {
@@ -45,6 +46,27 @@ export default function DashboardScreen() {
       console.error('Error loading gamification data:', error);
     }
   };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadDashboardData();
+      loadGamificationData();
+    }
+  }, [isAuthenticated]);
+
+  // Show loading while checking authentication
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Typography variant="body1">Loading...</Typography>
+      </View>
+    );
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -324,5 +346,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 16,
     elevation: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FAFBFC',
   },
 });

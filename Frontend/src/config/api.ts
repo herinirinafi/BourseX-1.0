@@ -1,29 +1,35 @@
 // Configuration de l'environnement
-const ENV = {
-  DEV: 'development',
-  PROD: 'production',
-} as const;
+import { Platform } from 'react-native';
+import { MOBILE_API_CONFIG } from './mobile-config';
 
-type Environment = typeof ENV[keyof typeof ENV];
+// Détection de la plateforme
+const isWeb = Platform.OS === 'web';
 
 // Configuration des URLs de l'API
-const API_URLS = {
-  [ENV.DEV]: 'http://127.0.0.1:8000/api',  
-  [ENV.PROD]: 'https://votre-api-production.com/api',
-} as const;
+const getApiUrl = () => {
+  if (__DEV__) {
+    // En développement
+    if (isWeb) {
+      // Sur web, utiliser localhost
+      return 'http://127.0.0.1:8000/api';
+    } else {
+      // Sur mobile (Expo Go), utiliser l'IP configurée
+      return MOBILE_API_CONFIG.API_URL;
+    }
+  } else {
+    // En production
+    return 'https://votre-api-production.com/api';
+  }
+};
 
 // Configuration des timeouts (en millisecondes)
 export const REQUEST_TIMEOUT = 15000; 
 export const MAX_RETRIES = 2;
 
-// Détection de l'environnement
-const getEnvironment = (): Environment => {
-  // Pour React Native, vous pouvez utiliser __DEV__
-  return __DEV__ ? ENV.DEV : ENV.PROD;
-};
-
 // URL de base de l'API
-export const API_BASE_URL = API_URLS[getEnvironment()];
+export const API_BASE_URL = getApiUrl();
+
+console.log(`🌐 API Configuration: Platform=${Platform.OS}, URL=${API_BASE_URL}`);
 
 // Points de terminaison de l'API
 export const ENDPOINTS = {

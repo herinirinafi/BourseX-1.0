@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { ResponsiveScreenWrapper } from '../../src/components/responsive/ResponsiveScreenWrapper';
+import { useEffect } from 'react';
 
 type MenuItem = {
   id: string;
@@ -22,7 +23,29 @@ const menuItems: MenuItem[] = [
 ];
 
 export default function HomeScreen() {
-  const { isAuthenticated, user, isAdmin } = useAuth();
+  const { isAuthenticated, user, isAdmin, loading } = useAuth();
+  const router = useRouter();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, loading, router]);
+
+  // Show loading while checking authentication
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const filteredMenuItems = menuItems.filter(item => 
     !item.adminOnly || (item.adminOnly && isAdmin)
@@ -177,5 +200,11 @@ const styles = StyleSheet.create({
   footerText: {
     color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FAFBFC',
   },
 });

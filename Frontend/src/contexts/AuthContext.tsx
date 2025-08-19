@@ -116,14 +116,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const logout = useCallback(() => {
+    console.log('🚪 AuthContext logout called');
+    console.log('📝 Current state before logout:', { 
+      hasToken: !!token, 
+      hasUser: !!user, 
+      username: user?.username 
+    });
+    
     setTokenState(null);
     setRefreshState(null);
     setUser(null);
+    
     // Immediately clear token stores to prevent stale headers
-  setAuthToken(null);
-  setRefreshToken(null);
-  setApiAuthToken(null);
-  }, []);
+    setAuthToken(null);
+    setRefreshToken(null);
+    setApiAuthToken(null);
+    
+    console.log('🧹 Tokens and user state cleared');
+    console.log('✅ AuthContext logout completed');
+  }, [token, user]);
 
   const loginWithToken = useCallback((t: string) => {
   // Set state and immediately sync to token stores to avoid race

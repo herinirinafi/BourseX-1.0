@@ -10,6 +10,10 @@ import {
   TextInput,
   Modal,
   Switch,
+  Platform,
+  Dimensions,
+  FlatList,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -36,10 +40,20 @@ interface DashboardStats {
     total_stocks: number;
     total_transactions: number;
     recent_transactions: number;
+    total_volume: number;
+    avg_price: number;
   };
   gamification: {
     total_missions: number;
     active_missions: number;
+    total_badges: number;
+    completed_missions: number;
+  };
+  analytics: {
+    daily_users: number[];
+    weekly_trades: number[];
+    popular_stocks: {symbol: string; trades: number}[];
+    revenue_trend: number[];
   };
 }
 
@@ -52,6 +66,7 @@ interface User {
   is_active: boolean;
   is_staff: boolean;
   date_joined: string;
+  last_login?: string;
   userprofile?: {
     balance: number;
     level: number;
@@ -70,6 +85,43 @@ interface Stock {
   sector: string;
   volume: number;
   market_cap: number;
+  price_change: number;
+  price_change_percent: number;
+  last_updated: string;
+}
+
+interface Transaction {
+  id: number;
+  user: string;
+  stock: string;
+  transaction_type: 'BUY' | 'SELL';
+  quantity: number;
+  price: number;
+  total_amount: number;
+  timestamp: string;
+  status: 'COMPLETED' | 'PENDING' | 'FAILED';
+}
+
+interface Mission {
+  id: number;
+  title: string;
+  description: string;
+  reward_xp: number;
+  reward_balance: number;
+  is_active: boolean;
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+  category: string;
+  completion_count: number;
+}
+
+interface Badge {
+  id: number;
+  name: string;
+  description: string;
+  icon: string;
+  rarity: 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY';
+  unlock_condition: string;
+  awarded_count: number;
 }
 
 const AdminDashboard: React.FC = () => {
@@ -79,11 +131,27 @@ const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [stocks, setStocks] = useState<Stock[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [missions, setMissions] = useState<Mission[]>([]);
+  const [badges, setBadges] = useState<Badge[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [sortBy, setSortBy] = useState('date');
+  const [selectedItems, setSelectedItems] = useState<number[]>([]);
+  
+  // Modal states
   const [showUserModal, setShowUserModal] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [showMissionModal, setShowMissionModal] = useState(false);
+  const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const [showBulkActionsModal, setShowBulkActionsModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
+  
+  // Form data states
   const [newUserData, setNewUserData] = useState({
     username: '',
     email: '',
@@ -101,6 +169,22 @@ const AdminDashboard: React.FC = () => {
     volume: '',
     market_cap: '',
   });
+  const [newMissionData, setNewMissionData] = useState({
+    title: '',
+    description: '',
+    reward_xp: '',
+    reward_balance: '',
+    difficulty: 'MEDIUM',
+    category: '',
+    is_active: true,
+  });
+  const [newBadgeData, setNewBadgeData] = useState({
+    name: '',
+    description: '',
+    icon: '',
+    rarity: 'COMMON',
+    unlock_condition: '',
+  });
 
   useEffect(() => {
     loadDashboardData();
@@ -110,23 +194,53 @@ const AdminDashboard: React.FC = () => {
     try {
       setLoading(true);
       
-      // Load dashboard stats
-      console.log('Loading dashboard stats...');
+      // Load dashboard stats with enhanced analytics
+      console.log('Loading enhanced dashboard stats...');
       const statsResponse = await authService.apiCall('/admin/dashboard-stats/');
       console.log('Stats response:', statsResponse);
       setStats(statsResponse);
       
-      // Load users
+      // Load users with profiles
       console.log('Loading users...');
       const usersResponse = await authService.apiCall('/admin/users/');
       console.log('Users response:', usersResponse);
       setUsers(usersResponse.results || usersResponse);
       
-      // Load stocks
+      // Load stocks with price history
       console.log('Loading stocks...');
       const stocksResponse = await authService.apiCall('/admin/stocks/');
       console.log('Stocks response:', stocksResponse);
       setStocks(stocksResponse.results || stocksResponse);
+      
+      // Load recent transactions
+      console.log('Loading transactions...');
+      try {
+        const transactionsResponse = await authService.apiCall('/admin/transactions/');
+        setTransactions(transactionsResponse.results || transactionsResponse);
+      } catch (error) {
+        console.warn('Transactions endpoint not available:', error);
+        setTransactions([]);
+      }
+      
+      // Load missions
+      console.log('Loading missions...');
+      try {
+        const missionsResponse = await authService.apiCall('/admin/missions/');
+        setMissions(missionsResponse.results || missionsResponse);
+      } catch (error) {
+        console.warn('Missions endpoint not available:', error);
+        setMissions([]);
+      }
+      
+      // Load badges
+      console.log('Loading badges...');
+      try {
+        const badgesResponse = await authService.apiCall('/admin/badges/');
+        setBadges(badgesResponse.results || badgesResponse);
+      } catch (error) {
+        console.warn('Badges endpoint not available:', error);
+        setBadges([]);
+      }
       
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -198,16 +312,103 @@ const AdminDashboard: React.FC = () => {
         case 'reset_password':
           endpoint = `/admin/users/${userId}/reset_password/`;
           break;
+        case 'delete':
+          endpoint = `/admin/users/${userId}/`;
+          break;
         default:
           return;
       }
       
-      const response = await authService.apiCall(endpoint, { method: 'POST' });
-      Alert.alert('Success', response.message);
-      await loadDashboardData();
+      if (action === 'delete') {
+        Alert.alert(
+          'Confirm Delete',
+          'Are you sure you want to delete this user? This action cannot be undone.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: async () => {
+                const response = await authService.apiCall(endpoint, { method: 'DELETE' });
+                showToast.success('Success', 'User deleted successfully');
+                await loadDashboardData();
+              },
+            },
+          ]
+        );
+      } else {
+        const response = await authService.apiCall(endpoint, { method: 'POST' });
+        showToast.success('Success', response.message || 'Action completed successfully');
+        await loadDashboardData();
+      }
     } catch (error) {
       console.error('Error in user action:', error);
-      Alert.alert('Error', 'Failed to perform action');
+      showToast.error('Error', 'Failed to perform action');
+    }
+  };
+
+  const handleStockAction = async (stockId: number, action: string) => {
+    try {
+      let endpoint = '';
+      
+      switch (action) {
+        case 'update_price':
+          endpoint = `/admin/stocks/${stockId}/update_price/`;
+          break;
+        case 'toggle_active':
+          endpoint = `/admin/stocks/${stockId}/toggle_active/`;
+          break;
+        case 'delete':
+          endpoint = `/admin/stocks/${stockId}/`;
+          break;
+        default:
+          return;
+      }
+      
+      if (action === 'delete') {
+        Alert.alert(
+          'Confirm Delete',
+          'Are you sure you want to delete this stock? This action cannot be undone.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: async () => {
+                await authService.apiCall(endpoint, { method: 'DELETE' });
+                showToast.success('Success', 'Stock deleted successfully');
+                await loadDashboardData();
+              },
+            },
+          ]
+        );
+      } else {
+        const response = await authService.apiCall(endpoint, { method: 'POST' });
+        showToast.success('Success', response.message || 'Action completed successfully');
+        await loadDashboardData();
+      }
+    } catch (error) {
+      console.error('Error in stock action:', error);
+      showToast.error('Error', 'Failed to perform action');
+    }
+  };
+
+  const handleBulkActions = async (action: string, itemIds: number[]) => {
+    try {
+      const response = await authService.apiCall('/admin/bulk-actions/', {
+        method: 'POST',
+        body: JSON.stringify({
+          action,
+          item_ids: itemIds,
+          item_type: activeTab,
+        }),
+      });
+      showToast.success('Success', response.message);
+      setSelectedItems([]);
+      await loadDashboardData();
+    } catch (error) {
+      console.error('Error in bulk action:', error);
+      showToast.error('Error', 'Failed to perform bulk action');
     }
   };
 
@@ -248,6 +449,34 @@ const AdminDashboard: React.FC = () => {
         method: 'POST',
         body: JSON.stringify(stockData),
       });
+      showToast.success('Success', 'Stock created successfully');
+      setShowStockModal(false);
+      setNewStockData({
+        symbol: '',
+        name: '',
+        current_price: '',
+        sector: '',
+        volume: '',
+        market_cap: '',
+      });
+      await loadDashboardData();
+    } catch (error) {
+      console.error('Error creating stock:', error);
+      showToast.error('Error', 'Failed to create stock');
+    }
+  };
+    try {
+      const stockData = {
+        ...newStockData,
+        current_price: parseFloat(newStockData.current_price),
+        volume: parseInt(newStockData.volume),
+        market_cap: parseFloat(newStockData.market_cap),
+      };
+      
+      await authService.apiCall('/admin/stocks/', {
+        method: 'POST',
+        body: JSON.stringify(stockData),
+      });
       Alert.alert('Success', 'Stock created successfully');
       setShowStockModal(false);
       setNewStockData({
@@ -263,25 +492,6 @@ const AdminDashboard: React.FC = () => {
       console.error('Error creating stock:', error);
       Alert.alert('Error', 'Failed to create stock');
     }
-  };
-
-  const handleLogout = () => {
-    Alert.alert(
-      'Confirmation',
-      'Êtes-vous sûr de vouloir vous déconnecter ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Déconnexion',
-          style: 'destructive',
-          onPress: () => {
-            logout();
-            showToast.success('Déconnexion', 'À bientôt !');
-            router.replace('/login' as any);
-          },
-        },
-      ]
-    );
   };
 
   const renderDashboardStats = () => (
@@ -530,7 +740,15 @@ const AdminDashboard: React.FC = () => {
 
         <TouchableOpacity
           style={styles.logoutButton}
-          onPress={handleLogout}
+          onPress={() => {
+            console.log('🔴 Logout button touched');
+            console.log('✅ Direct logout (no confirmation for web compatibility)');
+            logout();
+            showToast.success('Déconnexion', 'À bientôt !');
+            router.replace('/login' as any);
+            console.log('🏁 Logout completed');
+          }}
+          activeOpacity={0.7}
         >
           <Ionicons name="log-out" size={20} color="#FF3B30" />
           <Text style={styles.logoutText}>
